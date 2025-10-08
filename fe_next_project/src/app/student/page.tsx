@@ -134,7 +134,7 @@ export default function StudentProfile() {
       <footer className="mt-6 flex gap-4">
         <Link
           href="/login"
-          className="bg-orange-100 hover:bg-orange-200 text-orange-700 font-semibold px-6 py-2 rounded-full shadow-sm transition-all duration-200"
+          className="bg-orange-100 hover:bg-orange-300 text-orange-700 font-semibold px-6 py-2 rounded-full shadow-sm transition-all duration-200"
         >
           {"<- Quay lai"}
         </Link>
