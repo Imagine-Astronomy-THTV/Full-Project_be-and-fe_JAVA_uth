@@ -1,7 +1,46 @@
 "use client";
+
+import { useState } from "react";
 import Link from "next/link";
 
 export default function RegisterPage() {
+  // 👉 State để lưu dữ liệu người nhập
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // 👉 Hàm xử lý khi nhấn nút Đăng ký
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (password !== confirmPassword) {
+      alert("Mật khẩu xác nhận không khớp!");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, fullName }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Đăng ký thất bại!");
+        return;
+      }
+
+      alert("🎉 Đăng ký thành công! Hãy đăng nhập nhé!");
+      window.location.href = "/login";
+    } catch (err) {
+      console.error("Register error:", err);
+      alert("Lỗi server, vui lòng thử lại!");
+    }
+  };
+
   return (
     <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-pink-300 to-pink-200 overflow-hidden">
       {/* 🌕 Các chấm tròn trang trí có độ bóng sáng */}
@@ -16,13 +55,15 @@ export default function RegisterPage() {
           Đăng ký học toán trực tuyến
         </h1>
 
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSubmit}>
           {/* Họ và tên */}
           <div>
             <label className="block mb-1 font-semibold text-black">Họ và tên</label>
             <input
               type="text"
               placeholder="Nhập họ và tên"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 text-black font-medium placeholder:text-gray-400"
               required
             />
@@ -34,6 +75,8 @@ export default function RegisterPage() {
             <input
               type="email"
               placeholder="Nhập email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 text-black font-medium placeholder:text-gray-400"
               required
             />
@@ -45,6 +88,8 @@ export default function RegisterPage() {
             <input
               type="password"
               placeholder="Tạo mật khẩu"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 text-black font-medium placeholder:text-gray-400"
               required
             />
@@ -56,6 +101,8 @@ export default function RegisterPage() {
             <input
               type="password"
               placeholder="Nhập lại mật khẩu"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 text-black font-medium placeholder:text-gray-400"
               required
             />

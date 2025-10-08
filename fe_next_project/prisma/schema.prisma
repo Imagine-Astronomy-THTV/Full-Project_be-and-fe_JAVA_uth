@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int           @id @default(autoincrement())
+  fullName    String
+  email       String        @unique
+  password    String
+  role        Role          @default(student)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Quan hệ
+  courses     Course[]      @relation("TeacherCourses")
+  submissions Submission[]
+  files       FileAsset[]
+}
+
+enum Role {
+  admin
+  teacher
+  student
+}
+
+model Course {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String?
+  category    String?
+  teacher     User       @relation("TeacherCourses", fields: [teacherId], references: [id])
+  teacherId   Int
+  createdAt   DateTime   @default(now())
+
+  lessons     Lesson[]
+}
+
+model Lesson {
+  id        Int        @id @default(autoincrement())
+  title     String
+  content   String?
+  videoUrl  String?
+  course    Course     @relation(fields: [courseId], references: [id])
+  courseId  Int
+  createdAt DateTime   @default(now())
+
+  exercises Exercise[]
+}
+
+model Exercise {
+  id          Int           @id @default(autoincrement())
+  lesson      Lesson        @relation(fields: [lessonId], references: [id])
+  lessonId    Int
+  question    String
+  optionA     String
+  optionB     String
+  optionC     String
+  optionD     String
+  answer      String
+  submissions Submission[]
+}
+
+model Submission {
+  id         Int        @id @default(autoincrement())
+  student    User       @relation(fields: [studentId], references: [id])
+  studentId  Int
+  exercise   Exercise   @relation(fields: [exerciseId], references: [id])
+  exerciseId Int
+  choice     String
+  isCorrect  Boolean
+  createdAt  DateTime   @default(now())
+}
+
+model FileAsset {
+  id        Int       @id @default(autoincrement())
+  url       String
+  type      String?
+  owner     User?     @relation(fields: [ownerId], references: [id])
+  ownerId   Int?
+  createdAt DateTime  @default(now())
+}
