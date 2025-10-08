@@ -29,10 +29,10 @@ export default function LoginPage() {
       {/* 🧱 Form container */}
       <div className="relative z-10 bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md text-center transform transition-all duration-300 hover:shadow-orange-200">
         {/* Tiêu đề */}
-        <h1 className="text-4xl font-extrabold text-orange-700 mb-4 tracking-wide">
-          Đăng nhập học toán trực tuyến
+        <h1 className="text-4xl font-extrabold text-orange-700 mb- tracking-wide">
+          ĐĂNG NHẬP HỌC TOÁN TRỰC TUYẾN
         </h1>
-        <p className="text-orange-500 font-semibold mb-8">Cùng vui học mỗi ngày!</p>
+        <p className="text-orange-799 font-semibold mb-8">Cùng vui học mỗi ngày!</p>
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-5 text-left">
