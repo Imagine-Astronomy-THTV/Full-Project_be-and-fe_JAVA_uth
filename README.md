@@ -4,4 +4,7 @@ Nhóm 4 thành viên .
 
 Tiến độ công việc.
 Phú --> Fe,giao diện, ui. Kết nối data login
+
+
+
 Văn -->Fe giao diện,ui,tạo DataBase, Tạo và Kết nối BE spring boot + sql 
