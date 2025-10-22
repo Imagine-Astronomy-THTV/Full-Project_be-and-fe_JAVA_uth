@@ -13,3 +13,5 @@ Văn -->Fe giao diện,ui,tạo DataBase, Tạo và Kết nối BE spring boot +
 
 
 Hoàng --> Add entity
+
+Phúc --> Add auth và security
