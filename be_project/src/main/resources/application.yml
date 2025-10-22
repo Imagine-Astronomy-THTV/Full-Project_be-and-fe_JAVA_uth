@@ -1,11 +1,11 @@
 server:
-  port: 8080
+  port: 1433
 
 spring:
   datasource:
     url: jdbc:sqlserver://localhost:1433;databaseName=elearning;encrypt=false;trustServerCertificate=true
     username: sa
-    password: 123456
+    password: Strong@123
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   jpa:
