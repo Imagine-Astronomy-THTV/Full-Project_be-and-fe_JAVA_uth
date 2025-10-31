@@ -5,5 +5,4 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface StudentRepository extends JpaRepository<Student, Long> {
-    // JpaRepository đã có sẵn các hàm: findAll, save, deleteById, findById...
 }

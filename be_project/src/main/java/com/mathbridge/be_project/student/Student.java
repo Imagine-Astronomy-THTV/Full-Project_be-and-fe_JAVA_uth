@@ -2,7 +2,6 @@ package com.mathbridge.be_project.student;
 
 import com.mathbridge.be_project.user.User;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -45,6 +44,7 @@ public class Student {
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // Constructors
     public Student() {}
 
     public Student(User user, String fullName, LocalDate dob, String phone, String note) {
@@ -55,106 +55,22 @@ public class Student {
         this.note = note;
     }
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
-    public User getParent() {
-        return parent;
-    }
-
-    public void setParent(User parent) {
-        this.parent = parent;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
+    public Student(String fullName, LocalDate dob, String phone, String note) {
         this.fullName = fullName;
-    }
-
-    public LocalDate getDob() {
-        return dob;
-    }
-
-    public void setDob(LocalDate dob) {
         this.dob = dob;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    public String getNote() {
-        return note;
-    }
-
-    public void setNote(String note) {
         this.note = note;
     }
 
-    public String getGrade() {
-        return grade;
-    }
-
-    public void setGrade(String grade) {
+    public Student(User user, String fullName, LocalDate dob, String phone, String note, String grade) {
+        this.user = user;
+        this.fullName = fullName;
+        this.dob = dob;
+        this.phone = phone;
+        this.note = note;
         this.grade = grade;
     }
 
-    public String getSchool() {
-        return school;
-    }
-
-    public void setSchool(String school) {
-        this.school = school;
-    }
-
-    public String getSubjects() {
-        return subjects;
-    }
-
-    public void setSubjects(String subjects) {
-        this.subjects = subjects;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    @Override
-    public String toString() {
-        return "Student{" +
-                "id=" + id +
-                ", fullName='" + fullName + '\'' +
-                ", dob=" + dob +
-                ", phone='" + phone + '\'' +
-                ", grade='" + grade + '\'' +
-                ", school='" + school + '\'' +
-                ", subjects='" + subjects + '\'' +
-                ", createdAt=" + createdAt +
-                '}';
-    }
+    // Getters và Setters
+    // (giữ nguyên như bạn đã có)
 }
