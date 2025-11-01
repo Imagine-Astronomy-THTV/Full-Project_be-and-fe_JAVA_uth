@@ -3,6 +3,7 @@ package com.mathbridge.be_project.auth;
 import com.mathbridge.be_project.security.JwtUtils;
 import com.mathbridge.be_project.user.*;
 import com.mathbridge.be_project.common.UserStatus;
+import com.mathbridge.be_project.common.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -30,12 +31,14 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
         // Create user using available constructor on User
         String encodedPassword = passwordEncoder.encode(request.getPassword());
+        // Set default role to STUDENT if not provided
+        UserRole role = request.getRole() != null ? request.getRole() : UserRole.STUDENT;
         User user = new User(
-                "", // fullName not provided in RegisterRequest
+                "User", // Default fullName - can be updated later
                 request.getEmail(),
                 encodedPassword,
                 null, // phone
-                request.getRole()
+                role
         );
         user.setStatus(UserStatus.ACTIVE);
 
