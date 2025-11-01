@@ -2,20 +2,37 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { login, storeToken } from "../../lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
-    // ⚙️ Giả lập tài khoản mẫu
-    if (email === "student@example.com" && password === "123456") {
-      router.push("/student"); // ✅ Chuyển hướng sang trang student
-    } else {
-      alert("Sai email hoặc mật khẩu! Hãy thử lại.");
+    try {
+      const response = await login({ email, password });
+      
+      // Lưu token vào localStorage
+      storeToken(response.token);
+      
+      // Chuyển hướng dựa trên role
+      if (response.role === "ADMIN" || response.role === "admin") {
+        router.push("/admin");
+      } else if (response.role === "TUTOR" || response.role === "tutor") {
+        router.push("/teacher");
+      } else {
+        router.push("/student");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Sai email hoặc mật khẩu! Hãy thử lại.";
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,9 +79,10 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-semibold shadow-md hover:shadow-orange-300 transition-all duration-200"
+            disabled={loading}
+            className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white py-2 rounded-lg font-semibold shadow-md hover:shadow-orange-300 transition-all duration-200"
           >
-            Đăng nhập
+            {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
 

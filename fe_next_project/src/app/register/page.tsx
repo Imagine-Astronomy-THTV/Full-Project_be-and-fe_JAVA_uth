@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { register } from "../../lib/api";
 
 export default function RegisterPage() {
+  const router = useRouter();
   // 👉 State để lưu dữ liệu người nhập
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // 👉 Hàm xử lý khi nhấn nút Đăng ký
   const handleSubmit = async (e: React.FormEvent) => {
@@ -19,25 +22,18 @@ export default function RegisterPage() {
       return;
     }
 
+    setLoading(true);
+
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, fullName }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Đăng ký thất bại!");
-        return;
-      }
-
+      // Gửi role mặc định là STUDENT khi đăng ký
+      await register({ email, password, role: "STUDENT" });
       alert("🎉 Đăng ký thành công! Hãy đăng nhập nhé!");
-      window.location.href = "/login";
-    } catch (err) {
-      console.error("Register error:", err);
-      alert("Lỗi server, vui lòng thử lại!");
+      router.push("/login");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Lỗi server, vui lòng thử lại!";
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -56,19 +52,6 @@ export default function RegisterPage() {
         </h1>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          {/* Họ và tên */}
-          <div>
-            <label className="block mb-1 font-semibold text-black">Họ và tên</label>
-            <input
-              type="text"
-              placeholder="Nhập họ và tên"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-400 text-black font-medium placeholder:text-gray-400"
-              required
-            />
-          </div>
-
           {/* Email */}
           <div>
             <label className="block mb-1 font-semibold text-black">Email</label>
@@ -111,9 +94,10 @@ export default function RegisterPage() {
           {/* Nút đăng ký */}
           <button
             type="submit"
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-semibold transition duration-200"
+            disabled={loading}
+            className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white py-2 rounded-lg font-semibold transition duration-200"
           >
-            Đăng ký
+            {loading ? "Đang đăng ký..." : "Đăng ký"}
           </button>
         </form>
 
