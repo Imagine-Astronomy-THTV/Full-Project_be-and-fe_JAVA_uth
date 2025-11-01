@@ -1,18 +1,28 @@
 # MathBridge Project
 
+<<<<<<< HEAD
 Dự án học toán trực tuyến với kiến trúc Full-stack: Spring Boot (Backend) + Next.js (Frontend)
+=======
+
+Tạ Huy Thiên Văn
+>>>>>>> 4a46593f2b5bbfe34f02a3033cb34e0c54376641
 
 ## Cấu trúc dự án
 
+<<<<<<< HEAD
 ```
 Project_Java_WebMath/
 ├── be_project/          # Backend - Spring Boot
 ├── fe_next_project/     # Frontend - Next.js
 └── README.md
 ```
+=======
+Huỳnh Anh Phú
+>>>>>>> 4a46593f2b5bbfe34f02a3033cb34e0c54376641
 
 ## Yêu cầu hệ thống
 
+<<<<<<< HEAD
 ### Backend
 - Java 21+
 - Maven 3.6+
@@ -23,9 +33,13 @@ Project_Java_WebMath/
 - Node.js 18+
 - npm hoặc yarn
 - Port: 3000
+=======
+Lê Hoàng
+>>>>>>> 4a46593f2b5bbfe34f02a3033cb34e0c54376641
 
 ## Hướng dẫn chạy Backend
 
+<<<<<<< HEAD
 1. **Cấu hình Database:**
    - Mở file `be_project/src/main/resources/application.yml`
    - Cập nhật thông tin kết nối SQL Server:
@@ -122,3 +136,6 @@ Project_Java_WebMath/
 3. **Lỗi Frontend không kết nối được Backend:**
    - Kiểm tra biến môi trường `NEXT_PUBLIC_API_URL`
    - Đảm bảo backend đã start thành công
+=======
+Phan Anh Phúc
+>>>>>>> 4a46593f2b5bbfe34f02a3033cb34e0c54376641
