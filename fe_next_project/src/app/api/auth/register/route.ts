@@ -14,7 +14,7 @@ type AuthResponse = {
   };
 };
 
-type LoginError = { error: string };
+type RegisterError = { error: string };
 
 // ====== Hàm tiện ích: xác định có nên set cookie Secure hay không ======
 // - prod sau reverse proxy: ưu tiên header X-Forwarded-Proto
@@ -33,31 +33,42 @@ function isHttps(req: NextRequest): boolean {
 export async function POST(req: NextRequest) {
   try {
     // Đọc & kiểm tra đầu vào
-    const { email, password } = (await req.json()) as {
+    const { email, password, role } = (await req.json()) as {
       email?: string;
       password?: string;
+      role?: string;
     };
 
     if (!email || !password) {
-      const body: LoginError = { error: 'Thiếu email hoặc mật khẩu.' };
+      const body: RegisterError = { error: 'Thiếu email hoặc mật khẩu.' };
       return NextResponse.json(body, { status: 400 });
     }
 
     // Gọi API backend
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
-    const response = await fetch(`${backendUrl}/api/auth/login`, {
+    const requestBody: { email: string; password: string; role?: string } = {
+      email,
+      password,
+    };
+    
+    // Chỉ thêm role nếu có
+    if (role) {
+      requestBody.role = role;
+    }
+
+    const response = await fetch(`${backendUrl}/api/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      const errorBody: LoginError = { 
-        error: data.message || data.error || 'Đăng nhập thất bại!' 
+      const errorBody: RegisterError = { 
+        error: data.message || data.error || 'Đăng ký thất bại!' 
       };
       return NextResponse.json(errorBody, { status: response.status });
     }
@@ -89,8 +100,9 @@ export async function POST(req: NextRequest) {
 
     return res;
   } catch (err: unknown) {
-    console.error('🔥 Lỗi khi đăng nhập:', err);
-    const body: LoginError = { error: 'Lỗi máy chủ, vui lòng thử lại sau!' };
-    return NextResponse.json(body, { status: 500 });
+    console.error('🔥 Lỗi khi đăng ký:', err);
+    const errorBody: RegisterError = { error: 'Lỗi máy chủ, vui lòng thử lại sau!' };
+    return NextResponse.json(errorBody, { status: 500 });
   }
 }
+
