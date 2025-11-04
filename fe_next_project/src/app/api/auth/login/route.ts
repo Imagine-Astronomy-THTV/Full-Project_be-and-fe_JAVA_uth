@@ -1,10 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-// ====== Kiểu dữ liệu cho phản hồi từ backend ======
 type AuthResponse = {
-  ok: boolean;
-  message: string;
   token: string;
   user: {
     id: number;
@@ -12,13 +9,12 @@ type AuthResponse = {
     email: string;
     role: string;
   };
+  ok?: boolean;
+  message?: string;
 };
 
 type LoginError = { error: string };
 
-// ====== Hàm tiện ích: xác định có nên set cookie Secure hay không ======
-// - prod sau reverse proxy: ưu tiên header X-Forwarded-Proto
-// - dev (http://localhost) thì Secure = false
 function isHttps(req: NextRequest): boolean {
   const xfProto = req.headers.get('x-forwarded-proto');
   if (xfProto) return xfProto.includes('https');
@@ -29,68 +25,85 @@ function isHttps(req: NextRequest): boolean {
   }
 }
 
-// ====== Route handler - Proxy đến backend ======
 export async function POST(req: NextRequest) {
   try {
-    // Đọc & kiểm tra đầu vào
     const { email, password } = (await req.json()) as {
       email?: string;
       password?: string;
     };
 
     if (!email || !password) {
-      const body: LoginError = { error: 'Thiếu email hoặc mật khẩu.' };
-      return NextResponse.json(body, { status: 400 });
+      return NextResponse.json<LoginError>(
+        { error: 'Thiếu email hoặc mật khẩu.' },
+        { status: 400 }
+      );
     }
 
-    // Gọi API backend
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
-    const response = await fetch(`${backendUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081';
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      const errorBody: LoginError = { 
-        error: data.message || data.error || 'Đăng nhập thất bại!' 
-      };
-      return NextResponse.json(errorBody, { status: response.status });
+    let beRes: Response;
+    try {
+      beRes = await fetch(`${backendUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      return NextResponse.json<LoginError>(
+        { error: 'Không kết nối được máy chủ.' },
+        { status: 502 }
+      );
     }
 
-    // Parse response từ backend
-    const authResponse = data as AuthResponse;
+    // Cố parse JSON; nếu BE trả không phải JSON thì fallback
+    let beData: any = null;
+    try {
+      beData = await beRes.json();
+    } catch {
+      beData = null;
+    }
 
-    // Tạo response JSON
-    const res = NextResponse.json<AuthResponse>(
+    if (!beRes.ok) {
+      const msg =
+        beData?.message ||
+        beData?.error ||
+        `Đăng nhập thất bại (HTTP ${beRes.status}).`;
+      return NextResponse.json<LoginError>({ error: msg }, { status: beRes.status });
+    }
+
+    const data = beData as AuthResponse;
+    if (!data?.token || !data?.user) {
+      return NextResponse.json<LoginError>(
+        { error: 'Phản hồi không hợp lệ từ máy chủ.' },
+        { status: 500 }
+      );
+    }
+
+    // Trả JSON tối giản cho FE (không lộ token ra body)
+    const res = NextResponse.json(
       {
-        ok: authResponse.ok,
-        message: authResponse.message,
-        token: authResponse.token,
-        user: authResponse.user,
+        message: data.message ?? 'Đăng nhập thành công.',
+        user: data.user,
       },
       { status: 200 }
     );
 
-    // Set cookie HttpOnly để trình duyệt tự gửi kèm về sau
-    if (authResponse.token) {
-      res.cookies.set('token', authResponse.token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isHttps(req), // true khi chạy https (prod)
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 7 ngày
-      });
-    }
+    // Set cookie HttpOnly
+    res.cookies.set('access_token', data.token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isHttps(req),
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 ngày
+    });
 
     return res;
-  } catch (err: unknown) {
+  } catch (err) {
     console.error('🔥 Lỗi khi đăng nhập:', err);
-    const body: LoginError = { error: 'Lỗi máy chủ, vui lòng thử lại sau!' };
-    return NextResponse.json(body, { status: 500 });
-  }
+    return NextResponse.json<LoginError>(
+      { error: 'Lỗi máy chủ, vui lòng thử lại sau!' },
+      { status: 500 }
+    );
+    }
 }
