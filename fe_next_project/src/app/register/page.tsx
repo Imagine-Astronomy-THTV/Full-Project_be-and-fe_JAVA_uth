@@ -7,13 +7,13 @@ import { register } from "../../lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
-  // 👉 State để lưu dữ liệu người nhập
+  //  State để lưu dữ liệu người nhập
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 👉 Hàm xử lý khi nhấn nút Đăng ký
+  //  Hàm xử lý khi nhấn nút Đăng ký
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
