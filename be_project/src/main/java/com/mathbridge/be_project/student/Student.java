@@ -1,23 +1,28 @@
 package com.mathbridge.be_project.student;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mathbridge.be_project.user.User;
 import jakarta.persistence.*;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "students")
 public class Student {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
+    @JsonIgnore
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
+    @JsonIgnore
     private User parent;
 
     @Column(name = "full_name", nullable = false, length = 255)
@@ -26,52 +31,41 @@ public class Student {
     @Column(name = "dob")
     private LocalDate dob;
 
+    @Column(name = "gender", length = 20)
+    private String gender;
+
+    @Column(name = "district", length = 120)
+    private String district;
+
+    @Column(name = "email", length = 255)
+    private String email;
+
     @Column(name = "phone", length = 30)
     private String phone;
-
-    @Column(name = "note", length = 1000)
-    private String note;
 
     @Column(name = "grade", length = 20)
     private String grade;
 
-    @Column(name = "school", length = 255)
-    private String school;
+    @Column(name = "note", length = 1000)
+    private String note;
 
-    @Column(name = "subjects", length = 1000)
-    private String subjects;
-
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // Constructors
-    public Student() {}
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
-    public Student(User user, String fullName, LocalDate dob, String phone, String note) {
-        this.user = user;
-        this.fullName = fullName;
-        this.dob = dob;
-        this.phone = phone;
-        this.note = note;
+    @PrePersist
+    public void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = createdAt;
     }
 
-    public Student(String fullName, LocalDate dob, String phone, String note) {
-        this.fullName = fullName;
-        this.dob = dob;
-        this.phone = phone;
-        this.note = note;
+    @PreUpdate
+    public void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
-    public Student(User user, String fullName, LocalDate dob, String phone, String note, String grade) {
-        this.user = user;
-        this.fullName = fullName;
-        this.dob = dob;
-        this.phone = phone;
-        this.note = note;
-        this.grade = grade;
-    }
-
-    // Getters và Setters
     public Long getId() {
         return id;
     }
@@ -112,20 +106,36 @@ public class Student {
         this.dob = dob;
     }
 
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     public String getPhone() {
         return phone;
     }
 
     public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    public String getNote() {
-        return note;
-    }
-
-    public void setNote(String note) {
-        this.note = note;
     }
 
     public String getGrade() {
@@ -136,20 +146,12 @@ public class Student {
         this.grade = grade;
     }
 
-    public String getSchool() {
-        return school;
+    public String getNote() {
+        return note;
     }
 
-    public void setSchool(String school) {
-        this.school = school;
-    }
-
-    public String getSubjects() {
-        return subjects;
-    }
-
-    public void setSubjects(String subjects) {
-        this.subjects = subjects;
+    public void setNote(String note) {
+        this.note = note;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -159,4 +161,13 @@ public class Student {
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 }
+

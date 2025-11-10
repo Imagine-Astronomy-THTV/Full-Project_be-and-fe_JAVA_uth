@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { apiCall } from "@/lib/api";
 
 const DISTRICTS_HCM = [
   "Quận 1", "Quận 2", "Quận 3", "Quận 4", "Quận 5", "Quận 6",
@@ -79,14 +80,45 @@ export default function StudentDashboard() {
     r.readAsDataURL(f);
   };
 
-  const save = (e: React.FormEvent) => {
+  const normalizeDate = (value: string) => {
+    if (!value) return null;
+    // input[type=date] trả về yyyy-MM-dd -> giữ nguyên định dạng đó
+    return value;
+  };
+
+  const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!student.fullName.trim()) {
+      alert("Vui lòng nhập họ tên!");
+      return;
+    }
     if (!student.gradeLevel) {
       alert("Vui lòng chọn lớp học!");
       return;
     }
-    setEditMode(false);
-    alert("Đã lưu thông tin mẫu (chưa kết nối CSDL).");
+
+    const payload = {
+      fullName: student.fullName,
+      dob: normalizeDate(student.dob),
+      gender: student.gender || null,
+      district: student.district || null,
+      email: student.email || null,
+      phone: student.phone || null,
+      gradeLevel: student.gradeLevel,
+      note: null,
+    };
+
+    try {
+      await apiCall("/api/students", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setEditMode(false);
+      alert("Đã lưu thông tin học sinh vào CSDL.");
+    } catch (err: any) {
+      console.error("Save student failed:", err);
+      alert(err?.message || "Lưu thất bại. Vui lòng thử lại.");
+    }
   };
 
   const R = 52, C = 2 * Math.PI * R;

@@ -45,6 +45,8 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/test/**").permitAll()
+                        // Temporarily open student endpoints to match FE while integrating
+                        .requestMatchers("/api/students/**").permitAll()
 
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 

@@ -1,5 +1,6 @@
 package com.mathbridge.be_project.student;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,9 +13,12 @@ import java.time.LocalDate;
 public class StudentRequest {
     private String fullName;
     private LocalDate dob;
+    private String gender;
+    private String district;
+    private String email;
     private String phone;
-    private String note;
+    @JsonAlias("gradeLevel")
     private String grade;
-    private String school;
-    private String subjects;
+    private String note;
 }
+

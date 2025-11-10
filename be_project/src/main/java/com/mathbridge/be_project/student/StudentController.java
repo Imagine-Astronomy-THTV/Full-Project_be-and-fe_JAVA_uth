@@ -24,6 +24,16 @@ public class StudentController {
         return ResponseEntity.ok(student);
     }
 
+    // RESTful style: POST /api/students
+    @PostMapping
+    public ResponseEntity<Student> createStudentRest(@RequestBody StudentRequest request) {
+        User mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setFullName("Default User");
+        Student student = studentService.createStudent(mockUser, request);
+        return ResponseEntity.ok(student);
+    }
+
     @GetMapping
     public ResponseEntity<List<Student>> getAllStudents() {
         return ResponseEntity.ok(studentService.getAllStudents());
@@ -36,6 +46,15 @@ public class StudentController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Student> updateStudent(
+            @PathVariable Long id,
+            @RequestBody StudentRequest request
+    ) {
+        return ResponseEntity.ok(studentService.updateStudent(id, request));
+    }
+
+    // Partial update to match FE schema that may send only changed fields
+    @PatchMapping("/{id}")
+    public ResponseEntity<Student> patchStudent(
             @PathVariable Long id,
             @RequestBody StudentRequest request
     ) {
