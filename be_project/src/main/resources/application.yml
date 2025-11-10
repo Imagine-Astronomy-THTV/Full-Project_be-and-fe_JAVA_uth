@@ -2,6 +2,8 @@ server:
   port: 8081
 
 spring:
+  application:
+    name: be_project
   datasource:
     url: jdbc:sqlserver://localhost:1433;databaseName=elearning;encrypt=false;trustServerCertificate=true
     username: webmath_user
@@ -20,6 +22,10 @@ spring:
   flyway:
     enabled: false
 
-# Cho phép FE Next.js gọi API
-cors:
-  origins: http://localhost:3000
+# JWT (dev)
+jwt:
+  secret: "YOUR_SUPER_SECRET_KEY_256BIT_!!!"
+  expiration-ms: 86400000
+
+# Bạn đã cấu hình CORS bằng bean trong SecurityConfig rồi ->
+# không cần block 'cors.origins' tuỳ biến ở YAML nữa.
