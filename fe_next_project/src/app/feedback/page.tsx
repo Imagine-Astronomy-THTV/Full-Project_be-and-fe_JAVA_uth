@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { createFeedback, FeedbackRequest } from "@/lib/api";
 
 export default function ClassFeedbackPage() {
   const [form, setForm] = useState({
@@ -26,23 +27,78 @@ export default function ClassFeedbackPage() {
 
   const setRating = (n: number) => setForm((p) => ({ ...p, rating: n }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: gọi API lưu nếu cần
-    alert("Cảm ơn bạn! Đánh giá đã được ghi nhận.");
-    // reset nhẹ
-    setForm({
-      name: "",
-      course: "",
-      teacher: "",
-      date: "",
-      mode: "",
-      rating: 0,
-      useful: "",
-      comments: "",
-      suggestions: "",
-      anonymous: false,
-    });
+    setError(null);
+    setLoading(true);
+
+    // Validate
+    if (!form.course.trim()) {
+      setError("Vui lòng nhập môn/lớp");
+      setLoading(false);
+      return;
+    }
+    if (!form.teacher.trim()) {
+      setError("Vui lòng nhập giảng viên");
+      setLoading(false);
+      return;
+    }
+    if (!form.date) {
+      setError("Vui lòng chọn ngày học");
+      setLoading(false);
+      return;
+    }
+    if (!form.rating || form.rating < 1 || form.rating > 5) {
+      setError("Vui lòng chọn mức độ hài lòng (1-5 sao)");
+      setLoading(false);
+      return;
+    }
+    if (!form.comments.trim()) {
+      setError("Vui lòng nhập nhận xét tổng quan");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const payload: FeedbackRequest = {
+        name: form.name || undefined,
+        course: form.course,
+        teacher: form.teacher,
+        date: form.date,
+        mode: form.mode || undefined,
+        rating: form.rating,
+        useful: form.useful || undefined,
+        comments: form.comments,
+        suggestions: form.suggestions || undefined,
+        anonymous: form.anonymous,
+      };
+
+      await createFeedback(payload);
+      alert("Cảm ơn bạn! Đánh giá đã được ghi nhận.");
+      
+      // reset form
+      setForm({
+        name: "",
+        course: "",
+        teacher: "",
+        date: "",
+        mode: "",
+        rating: 0,
+        useful: "",
+        comments: "",
+        suggestions: "",
+        anonymous: false,
+      });
+    } catch (err: any) {
+      console.error("Submit feedback failed:", err);
+      setError(err?.message || "Gửi đánh giá thất bại. Vui lòng thử lại.");
+      alert(err?.message || "Gửi đánh giá thất bại. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -130,7 +186,7 @@ export default function ClassFeedbackPage() {
 
             {/* Rating */}
             <div>
-              <Label>Mức độ hài lòng</Label>
+              <Label>Mức độ hài lòng <span className="text-red-500">*</span></Label>
               <div className="flex gap-2">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -181,9 +237,16 @@ export default function ClassFeedbackPage() {
               </div>
             </div>
 
+            {/* Error message */}
+            {error && (
+              <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-red-700">
+                {error}
+              </div>
+            )}
+
             {/* Nhận xét */}
             <div>
-              <Label>Nhận xét tổng quan</Label>
+              <Label>Nhận xét tổng quan <span className="text-red-500">*</span></Label>
               <textarea
                 name="comments"
                 value={form.comments}
@@ -232,9 +295,10 @@ export default function ClassFeedbackPage() {
               </button>
               <button
                 type="submit"
-                className="rounded-xl bg-rose-500 px-5 py-2 font-semibold text-white shadow hover:bg-rose-600"
+                disabled={loading}
+                className="rounded-xl bg-rose-500 px-5 py-2 font-semibold text-white shadow hover:bg-rose-600 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Gửi đánh giá
+                {loading ? "Đang gửi..." : "Gửi đánh giá"}
               </button>
             </div>
           </form>
