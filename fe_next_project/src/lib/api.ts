@@ -18,6 +18,35 @@ export interface AuthResponse {
   role: string;
 }
 
+export interface FeedbackRequest {
+  name?: string;
+  course: string;
+  teacher: string;
+  date: string; // yyyy-MM-dd format
+  mode?: string; // Trực tiếp / Online / Hybrid
+  rating: number; // 1-5
+  useful?: string; // yes / no
+  comments: string;
+  suggestions?: string;
+  anonymous?: boolean;
+}
+
+export interface Feedback {
+  id: number;
+  name?: string;
+  course: string;
+  teacher: string;
+  date: string;
+  mode?: string;
+  rating: number;
+  useful?: string;
+  comments: string;
+  suggestions?: string;
+  anonymous: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * Login API call
  */
@@ -126,6 +155,23 @@ export async function apiCall<T>(
     // Re-throw other errors as-is
     throw error;
   }
+}
+
+/**
+ * Create feedback
+ */
+export async function createFeedback(data: FeedbackRequest): Promise<Feedback> {
+  return apiCall<Feedback>('/api/feedback', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Get all feedbacks
+ */
+export async function getAllFeedbacks(): Promise<Feedback[]> {
+  return apiCall<Feedback[]>('/api/feedback');
 }
 
 
