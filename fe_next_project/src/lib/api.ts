@@ -103,17 +103,29 @@ export async function apiCall<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || error.error || 'Request failed');
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      throw new Error(error.message || error.error || `Request failed with status ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    // Handle network errors (backend not running, CORS, etc.)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error(
+        `Không thể kết nối đến server backend (${API_BASE_URL}). ` +
+        `Vui lòng kiểm tra xem backend đã chạy chưa.`
+      );
+    }
+    // Re-throw other errors as-is
+    throw error;
   }
-
-  return response.json();
 }
 
 

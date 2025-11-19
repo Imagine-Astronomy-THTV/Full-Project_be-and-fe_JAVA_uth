@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -20,9 +21,21 @@ public class StudentService {
             throw new IllegalArgumentException("Full name is required");
         }
 
-        Student student = new Student();
-        student.setUser(user);
-        applyRequest(student, request, true);
+        // Kiểm tra xem user đã có student record chưa (do @OneToOne unique constraint)
+        Optional<Student> existingStudent = studentRepository.findByUser(user);
+        Student student;
+        
+        if (existingStudent.isPresent()) {
+            // Nếu đã có student, cập nhật thông tin
+            student = existingStudent.get();
+            applyRequest(student, request, true);
+        } else {
+            // Nếu chưa có, tạo mới
+            student = new Student();
+            student.setUser(user);
+            applyRequest(student, request, true);
+        }
+        
         return studentRepository.save(student);
     }
 
