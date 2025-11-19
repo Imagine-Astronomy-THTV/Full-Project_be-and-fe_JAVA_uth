@@ -15,6 +15,19 @@ type AuthResponse = {
 
 type LoginError = { error: string };
 
+function isAuthResponse(payload: unknown): payload is AuthResponse {
+  if (!payload || typeof payload !== "object") return false;
+  const data = payload as Record<string, unknown>;
+  const user = data.user as Record<string, unknown> | undefined;
+  return (
+    typeof data.token === "string" &&
+    user !== undefined &&
+    user !== null &&
+    typeof user.email === "string" &&
+    typeof user.role === "string"
+  );
+}
+
 function isHttps(req: NextRequest): boolean {
   const xfProto = req.headers.get('x-forwarded-proto');
   if (xfProto) return xfProto.includes('https');
@@ -57,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Cố parse JSON; nếu BE trả không phải JSON thì fallback
-    let beData: any = null;
+let beData: unknown = null;
     try {
       beData = await beRes.json();
     } catch {
@@ -65,15 +78,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (!beRes.ok) {
+      const errorPayload = beData as { message?: string; error?: string } | null;
       const msg =
-        beData?.message ||
-        beData?.error ||
+        errorPayload?.message ||
+        errorPayload?.error ||
         `Đăng nhập thất bại (HTTP ${beRes.status}).`;
       return NextResponse.json<LoginError>({ error: msg }, { status: beRes.status });
     }
 
-    const data = beData as AuthResponse;
-    if (!data?.token || !data?.user) {
+    const data = isAuthResponse(beData) ? beData : null;
+    if (!data) {
       return NextResponse.json<LoginError>(
         { error: 'Phản hồi không hợp lệ từ máy chủ.' },
         { status: 500 }

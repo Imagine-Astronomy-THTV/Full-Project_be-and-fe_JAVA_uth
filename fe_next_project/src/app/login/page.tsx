@@ -22,8 +22,9 @@ export default function LoginPage() {
       localStorage.setItem('accessToken', data.accessToken)
       localStorage.setItem('expiredAt', String(data.expiredAt))
       router.push('/student')
-    } catch (error: any) {
-      setErr(error.message || 'Đăng nhập thất bại')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Đăng nhập thất bại'
+      setErr(message)
     } finally {
       setLoading(false)
     }

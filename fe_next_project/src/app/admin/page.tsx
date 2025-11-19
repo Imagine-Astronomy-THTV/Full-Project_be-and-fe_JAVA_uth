@@ -49,7 +49,7 @@ const uid = (p = "") => p + Math.random().toString(36).slice(2, 8).toUpperCase()
 // ====== MAIN PAGE ======
 export default function AdminDashboardPage() {
   const [tab, setTab] = useState<"users" | "classes" | "payments" | "reports">("classes");
-  const [users, setUsers] = useState<User[]>(usersSeed);
+  const [users] = useState<User[]>(usersSeed);
   const [classes, setClasses] = useState<ClassItem[]>(classesSeed);
   const [payments] = useState<Payment[]>(paymentsSeed);
 
@@ -179,7 +179,7 @@ function UsersPanel({ data }: { data: User[] }) {
           />
           <select
             value={role}
-            onChange={(e) => setRole(e.target.value as any)}
+            onChange={(e) => setRole(e.target.value as "" | Role)}
             className="h-10 w-full rounded-xl border border-rose-300 bg-white px-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-rose-400 sm:w-40"
           >
             <option value="">Tất cả vai trò</option>
@@ -606,11 +606,27 @@ function ReportsPanel({ users, classes, payments }: { users: User[]; classes: Cl
 }
 
 // ====== TABLE HELPERS ======
-function Th({ children, className = "" }: React.PropsWithChildren<{ className?: string }>) {
-  return <th className={`px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${className}`}>{children}</th>;
+type TableCellProps = React.PropsWithChildren<React.ThHTMLAttributes<HTMLTableCellElement>>;
+
+function Th({ children, className = "", ...rest }: TableCellProps) {
+  return (
+    <th
+      className={`px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ${className}`}
+      {...rest}
+    >
+      {children}
+    </th>
+  );
 }
-function Td({ children, className = "" }: React.PropsWithChildren<{ className?: string }>) {
-  return <td className={`px-3 py-3 align-middle text-gray-800 ${className}`}>{children}</td>;
+
+type DataCellProps = React.PropsWithChildren<React.TdHTMLAttributes<HTMLTableCellElement>>;
+
+function Td({ children, className = "", ...rest }: DataCellProps) {
+  return (
+    <td className={`px-3 py-3 align-middle text-gray-800 ${className}`} {...rest}>
+      {children}
+    </td>
+  );
 }
 function Badge({ children, color = "slate" }: React.PropsWithChildren<{ color?: "rose" | "amber" | "emerald" | "blue" | "slate" }>) {
   const map: Record<string, string> = {

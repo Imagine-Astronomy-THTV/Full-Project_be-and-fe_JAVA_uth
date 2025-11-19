@@ -41,23 +41,6 @@ export default function ClassFeedbackPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-<<<<<<< HEAD
-    
-    alert("Cảm ơn bạn! Đánh giá đã được ghi nhận.");
-    
-    setForm({
-      name: "",
-      course: "",
-      teacher: "",
-      date: "",
-      mode: "",
-      rating: 0,
-      useful: "",
-      comments: "",
-      suggestions: "",
-      anonymous: false,
-    });
-=======
     setError(null);
     setLoading(true);
 
@@ -118,14 +101,14 @@ export default function ClassFeedbackPage() {
         suggestions: "",
         anonymous: false,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Submit feedback failed:", err);
-      setError(err?.message || "Gửi đánh giá thất bại. Vui lòng thử lại.");
-      alert(err?.message || "Gửi đánh giá thất bại. Vui lòng thử lại.");
+      const message = err instanceof Error ? err.message : "Gửi đánh giá thất bại. Vui lòng thử lại.";
+      setError(message);
+      alert(message);
     } finally {
       setLoading(false);
     }
->>>>>>> 86e66a9b48a5771370362d68b4af9270e200ca40
   };
 
   return (

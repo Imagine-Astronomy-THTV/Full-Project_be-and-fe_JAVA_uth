@@ -11,7 +11,7 @@ export default function Home() {
         fetch("http://localhost:8081/api/test")
             .then((res) => res.text())
             .then((data) => setMessage("✅ Kết nối thành công: " + data))
-            .catch((err) => setMessage("❌ Lỗi khi kết nối backend!"));
+            .catch(() => setMessage("❌ Lỗi khi kết nối backend!"));
     }, []);
 
     return (

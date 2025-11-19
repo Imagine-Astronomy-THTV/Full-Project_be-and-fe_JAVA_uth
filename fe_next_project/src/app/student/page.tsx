@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { apiCall } from "@/lib/api";
@@ -25,6 +25,13 @@ const DISTRICTS_HCM = [
 ];
 
 const GRADE_LEVELS = ["Lớp 10", "Lớp 11", "Lớp 12"];
+
+const PAYMENT_QR_KEY = "mathbridgePaymentQr";
+const PAYMENT_QR_UPDATED_AT_KEY = "mathbridgePaymentQrUpdatedAt";
+const PAYMENT_STATUS_KEY = "mathbridgePaymentStatus";
+const PAYMENT_STATUS_AT_KEY = "mathbridgePaymentStatusAt";
+const PAYMENT_AMOUNT_KEY = "mathbridgePaymentAmount";
+const PAYMENT_AMOUNT_UPDATED_AT_KEY = "mathbridgePaymentAmountUpdatedAt";
 
 type Student = {
     fullName: string;
@@ -63,6 +70,13 @@ function buildMonth(year: number, monthIndex: number) {
     return cells;
 }
 
+function formatDateTimeLabel(value: string | null) {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString("vi-VN", { hour12: false });
+}
+
 export default function StudentDashboard() {
     const [student, setStudent] = useState<Student>(EMPTY_STUDENT);
     const [photo, setPhoto] = useState<string | null>(null);
@@ -76,6 +90,13 @@ export default function StudentDashboard() {
         { name: "Hình học 10: Vector & Tọa độ" },
         { name: "Ôn luyện: Bất đẳng thức" },
     ]);
+    const [paymentQr, setPaymentQr] = useState<string | null>(null);
+    const [paymentUpdatedAt, setPaymentUpdatedAt] = useState<string | null>(null);
+    const [paymentStatus, setPaymentStatus] = useState<"idle" | "success">("idle");
+    const [paymentStatusAt, setPaymentStatusAt] = useState<string | null>(null);
+    const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+    const [paymentAmount, setPaymentAmount] = useState<string | null>(null);
+    const [paymentAmountUpdatedAt, setPaymentAmountUpdatedAt] = useState<string | null>(null);
 
     const today = new Date();
     const [year, setYear] = useState(today.getFullYear());
@@ -100,6 +121,84 @@ export default function StudentDashboard() {
     const normalizeDate = (value: string) => {
         if (!value) return null;
         return value; // yyyy-MM-dd gửi luôn cho BE
+    };
+
+    const syncPaymentInfo = useCallback(() => {
+        if (typeof window === "undefined") return false;
+        const storedQr = localStorage.getItem(PAYMENT_QR_KEY);
+        const storedQrAt = localStorage.getItem(PAYMENT_QR_UPDATED_AT_KEY);
+        const storedStatus = localStorage.getItem(PAYMENT_STATUS_KEY);
+        const storedStatusAt = localStorage.getItem(PAYMENT_STATUS_AT_KEY);
+        const storedAmount = localStorage.getItem(PAYMENT_AMOUNT_KEY);
+        const storedAmountAt = localStorage.getItem(PAYMENT_AMOUNT_UPDATED_AT_KEY);
+
+        setPaymentQr(storedQr);
+        setPaymentUpdatedAt(storedQrAt);
+
+        if (storedStatus === "success") {
+            setPaymentStatus("success");
+            setPaymentStatusAt(storedStatusAt);
+            setPaymentMessage("Thanh toán đã được xác nhận thành công.");
+        } else {
+            setPaymentStatus("idle");
+            setPaymentStatusAt(null);
+            setPaymentMessage(storedQr ? null : "Giảng viên chưa đăng tải mã QR. Vui lòng quay lại sau.");
+        }
+
+        if (storedAmount) {
+            setPaymentAmount(storedAmount);
+            setPaymentAmountUpdatedAt(storedAmountAt);
+        } else {
+            setPaymentAmount(null);
+            setPaymentAmountUpdatedAt(null);
+        }
+
+        return Boolean(storedQr);
+    }, []);
+
+    useEffect(() => {
+        syncPaymentInfo();
+    }, [syncPaymentInfo]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return undefined;
+        const handleStorage = (event: StorageEvent) => {
+            if (
+                event.key === PAYMENT_QR_KEY ||
+                event.key === PAYMENT_QR_UPDATED_AT_KEY ||
+                event.key === PAYMENT_STATUS_KEY ||
+                event.key === PAYMENT_STATUS_AT_KEY ||
+                event.key === PAYMENT_AMOUNT_KEY ||
+                event.key === PAYMENT_AMOUNT_UPDATED_AT_KEY
+            ) {
+                syncPaymentInfo();
+            }
+        };
+        window.addEventListener("storage", handleStorage);
+        return () => window.removeEventListener("storage", handleStorage);
+    }, [syncPaymentInfo]);
+
+    const refreshPaymentQr = () => {
+        const hasQr = syncPaymentInfo();
+        setPaymentMessage(
+            hasQr ? "Đã đồng bộ mã QR mới nhất." : "Chưa có mã QR được giáo viên đăng tải."
+        );
+    };
+
+    const handleConfirmPayment = () => {
+        if (!paymentQr) {
+            setPaymentMessage("Không tìm thấy mã QR để thanh toán. Vui lòng thử lại sau.");
+            return;
+        }
+        const timestamp = new Date().toISOString();
+        setPaymentStatus("success");
+        setPaymentStatusAt(timestamp);
+        setPaymentMessage("Thanh toán thành công! Nhà trường sẽ xác nhận trong giây lát.");
+
+        if (typeof window !== "undefined") {
+            localStorage.setItem(PAYMENT_STATUS_KEY, "success");
+            localStorage.setItem(PAYMENT_STATUS_AT_KEY, timestamp);
+        }
     };
 
     const save = async (e: React.FormEvent) => {
@@ -132,9 +231,9 @@ export default function StudentDashboard() {
             console.log("Student saved successfully:", result);
             setEditMode(false);
             alert("Đã lưu thông tin học sinh vào CSDL.");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Save student failed:", err);
-            const errorMessage = err?.message || "Lưu thất bại. Vui lòng thử lại.";
+            const errorMessage = err instanceof Error ? err.message : "Lưu thất bại. Vui lòng thử lại.";
             alert(errorMessage);
         }
     };
@@ -434,6 +533,109 @@ export default function StudentDashboard() {
                     />
                 </div>
 
+                <section className="mt-6 bg-black/40 rounded-3xl shadow p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="flex flex-col gap-3">
+                        <div>
+                            <p className="text-xs uppercase tracking-[0.3em] text-orange-300/70">Payment center</p>
+                            <h3 className="text-2xl font-extrabold text-orange-200">Thanh toán học phí</h3>
+                            <p className="text-sm text-orange-200/80">
+                                Quét mã QR do giáo viên cung cấp để hoàn tất học phí. Thông tin cập nhật tức thời giữa hai trang.
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-orange-700/60 bg-black/30 p-4 space-y-1">
+                            <p className="text-sm font-semibold text-orange-100">Số tiền cần thanh toán</p>
+                            <p className="text-2xl font-black text-orange-300">
+                                {paymentAmount ? paymentAmount : "Chưa có thông tin"}
+                            </p>
+                            {paymentAmountUpdatedAt && (
+                                <p className="text-xs text-orange-200/70">
+                                    Cập nhật: {formatDateTimeLabel(paymentAmountUpdatedAt)}
+                                </p>
+                            )}
+                        </div>
+
+                        {paymentUpdatedAt && (
+                            <p className="text-xs text-orange-200/70">
+                                Cập nhật QR lần cuối: {formatDateTimeLabel(paymentUpdatedAt)}
+                            </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                type="button"
+                                onClick={refreshPaymentQr}
+                                className="rounded-full border border-orange-600/70 px-4 py-2 text-sm font-semibold text-orange-100 hover:bg-white/5 transition"
+                            >
+                                Tải lại QR
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!paymentQr}
+                                onClick={handleConfirmPayment}
+                                className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-black shadow hover:bg-orange-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                Đã thanh toán
+                            </button>
+                        </div>
+
+                        {paymentMessage && (
+                            <div
+                                className={`rounded-2xl border px-4 py-3 text-sm ${
+                                    paymentStatus === "success"
+                                        ? "border-emerald-400/60 bg-emerald-900/20 text-emerald-100"
+                                        : "border-orange-600/60 bg-orange-900/20 text-orange-100"
+                                }`}
+                            >
+                                {paymentMessage}
+                            </div>
+                        )}
+
+                        {paymentStatus === "success" && (
+                            <div className="rounded-2xl border border-emerald-500/40 bg-emerald-900/20 p-4 text-emerald-100 space-y-2">
+                                <div>
+                                    <p className="text-lg font-semibold text-emerald-300">✔ Thanh toán thành công</p>
+                                    <p className="text-sm mt-1">
+                                        Nhà trường sẽ gửi hóa đơn xác nhận qua email đăng ký trong vòng 24h.
+                                    </p>
+                                </div>
+                                {paymentAmount && (
+                                    <p className="text-sm text-emerald-200">
+                                        Số tiền: <span className="font-semibold text-white">{paymentAmount}</span>
+                                    </p>
+                                )}
+                                {paymentStatusAt && (
+                                    <p className="text-xs text-emerald-200/70 mt-1">
+                                        Xác nhận lúc {formatDateTimeLabel(paymentStatusAt)}
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-center">
+                        {paymentQr ? (
+                            <div className="rounded-3xl border border-orange-700/60 bg-black/30 p-6 text-center">
+                                <Image
+                                    src={paymentQr}
+                                    alt="Mã QR thanh toán"
+                                    width={320}
+                                    height={320}
+                                    className="w-64 h-64 object-contain mx-auto"
+                                    unoptimized
+                                />
+                                <p className="mt-3 text-xs text-orange-200/70">
+                                    Dùng ứng dụng ngân hàng (MB, Vietcombank, Momo...) để quét và nhập số tiền theo hướng dẫn.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="rounded-3xl border border-dashed border-orange-700/60 bg-black/20 p-6 text-center text-sm text-orange-200/70">
+                                Chưa có mã QR. Vui lòng nhấn &quot;Tải lại QR&quot; sau khi giáo viên cập nhật.
+                            </div>
+                        )}
+                    </div>
+                </section>
+
 
                 {/* Tiến độ & Feedback gần đây */}
                 <section className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -519,7 +721,37 @@ export default function StudentDashboard() {
 }
 
 /* ---------- Input components ---------- */
-function TextField({ label, value, onChange, placeholder, edit }: any) {
+type TextFieldProps = {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    edit: boolean;
+};
+
+type SelectOption<T extends string = string> = { value: T; label: string };
+
+type SelectFieldProps<T extends string> = {
+    label: string;
+    value: T;
+    onChange: (value: T) => void;
+    options: SelectOption<T>[];
+    edit: boolean;
+};
+
+type DateFieldProps = {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    edit: boolean;
+};
+
+type TileStatProps = {
+    title: string;
+    value: number | string;
+};
+
+function TextField({ label, value, onChange, placeholder, edit }: TextFieldProps) {
     return (
         <div>
             <span className="block text-orange-300/80 mb-1">{label}</span>
@@ -538,13 +770,7 @@ function TextField({ label, value, onChange, placeholder, edit }: any) {
         </div>
     );
 }
-function SelectField<T extends string>({
-                                           label,
-                                           value,
-                                           onChange,
-                                           options,
-                                           edit,
-                                       }: any) {
+function SelectField<T extends string>({ label, value, onChange, options, edit }: SelectFieldProps<T>) {
     return (
         <div>
             <span className="block text-orange-300/80 mb-1">{label}</span>
@@ -555,7 +781,7 @@ function SelectField<T extends string>({
                         onChange={(e) => onChange(e.target.value as T)}
                         className="w-full appearance-none bg-transparent border border-orange-700 rounded-md px-3 py-2 focus:outline-none focus:border-orange-400"
                     >
-                        {options.map((o: any) => (
+                        {options.map((o) => (
                             <option key={o.value} value={o.value} className="bg-gray-900">
                                 {o.label}
                             </option>
@@ -567,7 +793,7 @@ function SelectField<T extends string>({
                 </div>
             ) : (
                 <span className="font-medium">
-          {options.find((o: any) => o.value === value)?.label || (
+          {options.find((o) => o.value === value)?.label || (
               <em className="text-orange-300/60">—</em>
           )}
         </span>
@@ -576,7 +802,7 @@ function SelectField<T extends string>({
     );
 }
 
-function DateField({ label, value, onChange, edit }: any) {
+function DateField({ label, value, onChange, edit }: DateFieldProps) {
     return (
         <div>
             <span className="block text-orange-300/80 mb-1">{label}</span>
@@ -605,7 +831,7 @@ function DateField({ label, value, onChange, edit }: any) {
     );
 }
 
-function TileStat({ title, value }: any) {
+function TileStat({ title, value }: TileStatProps) {
     return (
         <div className="rounded-2xl p-4 bg-black/40 shadow">
             <div className="text-sm font-semibold text-orange-200">{title}</div>

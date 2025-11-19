@@ -123,9 +123,16 @@ export async function apiCall<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
-  const headers: HeadersInit = {
+  const normalizedHeaders =
+    options.headers instanceof Headers
+      ? Object.fromEntries(options.headers.entries())
+      : Array.isArray(options.headers)
+        ? Object.fromEntries(options.headers)
+        : (options.headers as Record<string, string> | undefined) ?? {};
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...normalizedHeaders,
   };
 
   if (token) {
@@ -144,7 +151,7 @@ export async function apiCall<T>(
     }
 
     return response.json();
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle network errors (backend not running, CORS, etc.)
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       throw new Error(
@@ -153,7 +160,10 @@ export async function apiCall<T>(
       );
     }
     // Re-throw other errors as-is
-    throw error;
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Đã xảy ra lỗi không xác định.');
   }
 }
 

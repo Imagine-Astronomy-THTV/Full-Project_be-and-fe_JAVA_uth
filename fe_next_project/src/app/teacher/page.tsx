@@ -3,9 +3,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Feedback, getAllFeedbacks } from "@/lib/api";
 
+const PAYMENT_QR_KEY = "mathbridgePaymentQr";
+const PAYMENT_QR_UPDATED_AT_KEY = "mathbridgePaymentQrUpdatedAt";
+const PAYMENT_STATUS_KEY = "mathbridgePaymentStatus";
+const PAYMENT_STATUS_AT_KEY = "mathbridgePaymentStatusAt";
+const PAYMENT_AMOUNT_KEY = "mathbridgePaymentAmount";
+const PAYMENT_AMOUNT_UPDATED_AT_KEY = "mathbridgePaymentAmountUpdatedAt";
+
 export default function TeacherProfile() {
+  const router = useRouter();
   const [teacher, setTeacher] = useState({
     employeeId: "",
     name: "",
@@ -21,6 +30,14 @@ export default function TeacherProfile() {
   });
 
   const [photo, setPhoto] = useState<string | null>(null);
+  const [paymentQr, setPaymentQr] = useState<string | null>(null);
+  const [qrUpdatedAt, setQrUpdatedAt] = useState<string | null>(null);
+  const [qrUploading, setQrUploading] = useState(false);
+  const [qrMessage, setQrMessage] = useState<string | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentAmountUpdatedAt, setPaymentAmountUpdatedAt] = useState<string | null>(null);
+  const [latestPaymentStatus, setLatestPaymentStatus] = useState<"idle" | "success">("idle");
+  const [latestPaymentStatusAt, setLatestPaymentStatusAt] = useState<string | null>(null);
   const [teacherEmail, setTeacherEmail] = useState("");
   const [lastLoginAt, setLastLoginAt] = useState<string | null>(null);
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -35,16 +52,60 @@ export default function TeacherProfile() {
     if (typeof window === "undefined") return;
     const storedEmail = localStorage.getItem("teacherEmail");
     const storedLogin = localStorage.getItem("teacherLastLogin");
+    const storedQr = localStorage.getItem(PAYMENT_QR_KEY);
+    const storedQrUpdated = localStorage.getItem(PAYMENT_QR_UPDATED_AT_KEY);
+    const storedStatus = localStorage.getItem(PAYMENT_STATUS_KEY);
+    const storedStatusAt = localStorage.getItem(PAYMENT_STATUS_AT_KEY);
+    const storedAmount = localStorage.getItem(PAYMENT_AMOUNT_KEY);
+    const storedAmountAt = localStorage.getItem(PAYMENT_AMOUNT_UPDATED_AT_KEY);
 
-    if (storedEmail) {
-      setTeacherEmail(storedEmail);
-      setTeacher((prev) => ({ ...prev, email: storedEmail }));
+    if (!storedEmail) {
+      router.replace("/login-teacher");
+      return;
     }
+
+    setTeacherEmail(storedEmail);
+    setTeacher((prev) => ({ ...prev, email: storedEmail }));
 
     if (storedLogin) {
       setLastLoginAt(storedLogin);
     }
+
+    if (storedQr) {
+      setPaymentQr(storedQr);
+    }
+
+    if (storedQrUpdated) {
+      setQrUpdatedAt(storedQrUpdated);
+    }
+
+    if (storedStatus === "success") {
+      setLatestPaymentStatus("success");
+      setLatestPaymentStatusAt(storedStatusAt);
+    }
+
+    if (storedAmount) {
+      setPaymentAmount(storedAmount);
+      setPaymentAmountUpdatedAt(storedAmountAt);
+    }
+  }, [router]);
+
+  const loadPaymentConfig = useCallback(async () => {
+    setPaymentLoading(true);
+    try {
+      const data = await fetchPaymentConfig();
+      setPaymentConfig(data);
+      setQrMessage(null);
+    } catch (err: unknown) {
+      setQrMessage(err instanceof Error ? err.message : "Không thể tải thông tin thanh toán.");
+    } finally {
+      setPaymentLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadPaymentConfig();
+  }, [loadPaymentConfig]);
 
   const fetchFeedbacks = useCallback(async () => {
     setFeedbackLoading(true);
@@ -54,8 +115,8 @@ export default function TeacherProfile() {
       const data = await getAllFeedbacks();
       setFeedbacks(data);
       setLastSyncedAt(new Date().toISOString());
-    } catch (err: any) {
-      setFeedbackError(err?.message || "Không thể tải danh sách feedback. Vui lòng thử lại.");
+    } catch (err: unknown) {
+      setFeedbackError(err instanceof Error ? err.message : "Không thể tải danh sách feedback. Vui lòng thử lại.");
     } finally {
       setFeedbackLoading(false);
     }
@@ -64,6 +125,35 @@ export default function TeacherProfile() {
   useEffect(() => {
     fetchFeedbacks();
   }, [fetchFeedbacks]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === PAYMENT_QR_KEY) {
+        setPaymentQr(event.newValue);
+      }
+      if (event.key === PAYMENT_QR_UPDATED_AT_KEY) {
+        setQrUpdatedAt(event.newValue);
+      }
+      if (event.key === PAYMENT_STATUS_KEY) {
+        if (event.newValue === "success") {
+          setLatestPaymentStatus("success");
+          setLatestPaymentStatusAt(localStorage.getItem(PAYMENT_STATUS_AT_KEY));
+        } else {
+          setLatestPaymentStatus("idle");
+          setLatestPaymentStatusAt(null);
+        }
+      }
+      if (event.key === PAYMENT_AMOUNT_KEY) {
+        setPaymentAmount(event.newValue || "");
+      }
+      if (event.key === PAYMENT_AMOUNT_UPDATED_AT_KEY) {
+        setPaymentAmountUpdatedAt(event.newValue);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   const courseOptions = useMemo(() => {
     const unique = new Set<string>();
@@ -133,6 +223,76 @@ export default function TeacherProfile() {
       const reader = new FileReader();
       reader.onloadend = () => setPhoto(reader.result as string);
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePaymentQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setQrUploading(true);
+    setQrMessage(null);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const timestamp = new Date().toISOString();
+      setPaymentQr(result);
+      setQrUpdatedAt(timestamp);
+      setQrMessage("Đã đăng tải mã QR mới, học sinh có thể quét ngay.");
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(PAYMENT_QR_KEY, result);
+        localStorage.setItem(PAYMENT_QR_UPDATED_AT_KEY, timestamp);
+        localStorage.removeItem(PAYMENT_STATUS_KEY);
+        localStorage.removeItem(PAYMENT_STATUS_AT_KEY);
+      }
+
+      setLatestPaymentStatus("idle");
+      setLatestPaymentStatusAt(null);
+
+      setQrUploading(false);
+    };
+
+    reader.onerror = () => {
+      setQrMessage("Không thể đọc tệp. Vui lòng thử lại.");
+      setQrUploading(false);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const clearPaymentQr = () => {
+    setPaymentQr(null);
+    setQrUpdatedAt(null);
+    setQrMessage("Đã gỡ mã QR khỏi hệ thống.");
+    setLatestPaymentStatus("idle");
+    setLatestPaymentStatusAt(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(PAYMENT_QR_KEY);
+      localStorage.removeItem(PAYMENT_QR_UPDATED_AT_KEY);
+      localStorage.removeItem(PAYMENT_STATUS_KEY);
+      localStorage.removeItem(PAYMENT_STATUS_AT_KEY);
+    }
+  };
+
+  const acknowledgePayment = () => {
+    setLatestPaymentStatus("idle");
+    setLatestPaymentStatusAt(null);
+    setQrMessage("Đã xác nhận thanh toán từ học sinh.");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(PAYMENT_STATUS_KEY);
+      localStorage.removeItem(PAYMENT_STATUS_AT_KEY);
+    }
+  };
+
+  const handlePaymentAmountChange = (value: string) => {
+    setPaymentAmount(value);
+    const timestamp = new Date().toISOString();
+    setPaymentAmountUpdatedAt(timestamp);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(PAYMENT_AMOUNT_KEY, value);
+      localStorage.setItem(PAYMENT_AMOUNT_UPDATED_AT_KEY, timestamp);
     }
   };
 
@@ -527,6 +687,13 @@ export default function TeacherProfile() {
               </Link>
 
               <Link
+                href="/teacher/dashboard"
+                className="flex-1 min-w-[140px] text-center border border-orange-700/70 rounded-2xl py-3 text-sm font-semibold text-orange-100 hover:bg-[#38180b] transition shadow-md"
+              >
+                Trung tâm giảng dạy
+              </Link>
+
+              <Link
                 href="/home"
                 className="flex-1 min-w-[140px] text-center bg-orange-500 hover:bg-orange-400 rounded-2xl py-3 text-sm font-semibold text-black shadow-[0_0_18px_rgba(248,148,80,0.7)] transition"
               >
@@ -535,6 +702,123 @@ export default function TeacherProfile() {
             </div>
           </div>
         </div>
+
+        <section className="mt-10 rounded-3xl border border-orange-800/60 bg-[#2a1207] p-6 shadow-[0_0_40px_rgba(0,0,0,0.65)]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-orange-200/70">Payment sync</p>
+                <h3 className="text-2xl font-extrabold text-orange-200">Chia sẻ mã QR thanh toán</h3>
+                <p className="text-sm text-orange-200/80">
+                  Tải ảnh QR của ví điện tử/ ngân hàng (Momo, MB Bank, Vietcombank...) để học sinh quét trực tiếp trong trang Student.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-orange-700/70 bg-[#1b0703] p-4">
+                <label className="text-sm font-semibold text-orange-100 mb-2 block">
+                  Số tiền cần thanh toán (hiển thị cho học sinh)
+                </label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={paymentAmount}
+                    onChange={(e) => handlePaymentAmountChange(e.target.value)}
+                    placeholder="Ví dụ: 1.500.000đ / tháng"
+                    className="flex-1 rounded-lg border border-orange-700/60 bg-transparent px-3 py-2 text-orange-50 placeholder:text-orange-300/60 focus:outline-none focus:border-orange-400"
+                  />
+                </div>
+                {paymentAmountUpdatedAt && (
+                  <p className="mt-2 text-xs text-orange-200/70">
+                    Cập nhật: {formatDateTimeLabel(paymentAmountUpdatedAt)}
+                  </p>
+                )}
+              </div>
+
+              {qrUpdatedAt && (
+                <p className="text-xs text-orange-200/70">
+                  Đã cập nhật: {formatDateTimeLabel(qrUpdatedAt)}
+                </p>
+              )}
+
+              <div className="flex flex-wrap gap-3">
+                <label className="inline-flex items-center justify-center rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-black shadow cursor-pointer hover:bg-orange-400 transition">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePaymentQrUpload}
+                  />
+                  {qrUploading ? "Đang tải..." : "Tải mã QR"}
+                </label>
+
+                <button
+                  type="button"
+                  onClick={clearPaymentQr}
+                  disabled={!paymentQr}
+                  className="rounded-full border border-orange-600/70 px-5 py-2 text-sm font-semibold text-orange-100 hover:bg-[#3c1b0b] disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  Gỡ mã QR
+                </button>
+
+              </div>
+
+              {qrMessage && (
+                <div className="rounded-2xl border border-orange-700/60 bg-[#1b0703] px-4 py-3 text-sm text-orange-100">
+                  {qrMessage}
+                </div>
+              )}
+
+              {latestPaymentStatus === "success" && (
+                <div className="rounded-2xl border border-emerald-500/50 bg-emerald-900/20 p-4 text-emerald-100 space-y-2">
+                  <div>
+                    <p className="text-lg font-semibold text-emerald-300">Học sinh đã báo thanh toán thành công</p>
+                    <p className="text-sm">
+                      Vui lòng kiểm tra giao dịch và nhấn &quot;Đánh dấu đã xác nhận&quot; sau khi hoàn tất đối soát.
+                    </p>
+                  </div>
+                  {latestPaymentStatusAt && (
+                    <p className="text-xs text-emerald-200/70">
+                      Nhận lúc {formatDateTimeLabel(latestPaymentStatusAt)}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={acknowledgePayment}
+                    className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-black hover:bg-emerald-400 transition"
+                  >
+                    Đánh dấu đã xác nhận
+                  </button>
+                </div>
+              )}
+
+              <p className="text-xs text-orange-200/70">
+                Mỗi lần tải mã mới, trạng thái thanh toán của học sinh sẽ được đặt lại để tránh nhầm lẫn.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center">
+              {paymentQr ? (
+                <div className="rounded-3xl border border-orange-700/60 bg-[#1b0703] p-6 text-center">
+                  <Image
+                    src={paymentQr}
+                    alt="QR thanh toán do giảng viên tải lên"
+                    width={320}
+                    height={320}
+                    className="w-64 h-64 object-contain mx-auto"
+                    unoptimized
+                  />
+                  <p className="mt-3 text-xs text-orange-200/70">
+                    Ảnh QR này được hiển thị ngay tại thẻ &quot;Thanh toán học phí&quot; của cổng Student.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-dashed border-orange-700/60 bg-[#1b0703] p-6 text-center text-sm text-orange-200/70 w-full">
+                  Chưa có mã QR. Tải ảnh để đồng bộ với học sinh.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
         <section className="mt-10 rounded-3xl border border-orange-800/60 bg-[#2a1207] p-6 shadow-[0_0_40px_rgba(0,0,0,0.65)]">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
