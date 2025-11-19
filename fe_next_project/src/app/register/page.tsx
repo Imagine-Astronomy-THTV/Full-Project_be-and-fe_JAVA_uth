@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<"STUDENT" | "TEACHER">("STUDENT");
   const [loading, setLoading] = useState(false);
 
   //  Hàm xử lý khi nhấn nút Đăng ký
@@ -25,10 +26,14 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Gửi role mặc định là STUDENT khi đăng ký
-      await register({ email, password, role: "STUDENT" });
-      alert("🎉 Đăng ký thành công! Hãy đăng nhập nhé!");
-      router.push("/login");
+      await register({ email, password, role });
+      if (role === "TEACHER") {
+        alert("🎉 Đăng ký giảng viên thành công! Hãy đăng nhập tại cổng giảng viên nhé!");
+        router.push("/login-teacher");
+      } else {
+        alert("🎉 Đăng ký thành công! Hãy đăng nhập nhé!");
+        router.push("/login");
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Lỗi server, vui lòng thử lại!";
       alert(errorMessage);
@@ -38,20 +43,59 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-pink-300 to-pink-200 overflow-hidden">
-      {/* 🌕 Các chấm tròn trang trí có độ bóng sáng */}
-      <div className="absolute w-64 h-64 bg-white rounded-full opacity-60 top-10 left-20 blur-xl"></div>
-      <div className="absolute w-36 h-36 bg-white rounded-full opacity-70 bottom-20 right-24 blur-lg"></div>
-      <div className="absolute w-24 h-24 bg-white rounded-full opacity-80 top-1/3 right-1/3 blur-md"></div>
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-pink-200 via-pink-100 to-orange-100 px-4 py-10 overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-10 left-10 h-72 w-72 rounded-full bg-white/60 blur-[120px]" />
+        <div className="absolute top-1/2 right-10 h-48 w-48 rounded-full bg-orange-200/50 blur-3xl" />
+        <div className="absolute bottom-0 left-1/2 h-32 w-32 -translate-x-1/2 rounded-full bg-white/60 blur-2xl" />
+      </div>
 
-      {/* 🧱 Form container */}
-      <div className="relative z-10 bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md text-center transform transition-all duration-300 hover:shadow-pink-200">
-        {/* Tiêu đề */}
-        <h1 className="text-2xl font-bold text-center mb-6 text-black">
-          Đăng ký học toán trực tuyến
-        </h1>
+      <div className="relative z-10 grid w-full max-w-5xl gap-8 md:grid-cols-[1.1fr_0.9fr]">
+        {/* Left column: intro + role highlights */}
+        <section className="rounded-3xl border border-pink-100 bg-white/90 p-8 shadow-2xl shadow-pink-200/40 backdrop-blur">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-pink-500">
+            MathBridge Account
+          </p>
+          <h1 className="mt-3 text-3xl font-extrabold text-gray-900 leading-tight">
+            Tạo tài khoản để đồng bộ lộ trình học và quản lý lớp Toán
+          </h1>
+          <p className="mt-4 text-sm text-gray-600 leading-relaxed">
+            Chúng tôi lưu mọi thông tin đăng ký (email, vai trò, hồ sơ giảng viên) trong cơ sở dữ liệu trung tâm để đảm bảo đăng nhập thống nhất
+            giữa cổng học sinh và cổng giảng viên.
+          </p>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+          <div className="mt-8 grid gap-4">
+            {[
+              {
+                badge: "Học sinh",
+                title: "Theo dõi tiến độ học",
+                desc: "Nhận video, bài tập và lịch học cá nhân hoá.",
+              },
+              {
+                badge: "Giảng viên",
+                title: "Quản lý hồ sơ & phản hồi",
+                desc: "Sau khi đăng ký lưu role TEACHER vào DB để bạn đăng nhập cổng giảng viên và xem feedback học viên.",
+              },
+            ].map((item) => (
+              <div key={item.badge} className="rounded-2xl border border-pink-100 bg-pink-50/60 p-4">
+                <div className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase text-pink-500 shadow-sm">
+                  {item.badge}
+                </div>
+                <p className="mt-3 text-lg font-semibold text-gray-900">{item.title}</p>
+                <p className="text-sm text-gray-600">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Right column: form */}
+        <section className="rounded-3xl border border-white/70 bg-white p-8 text-gray-900 shadow-2xl shadow-pink-200/50">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900">Đăng ký tài khoản</h2>
+            <p className="mt-1 text-sm text-gray-500">Thông tin được bảo mật và sử dụng để phân quyền đăng nhập.</p>
+          </div>
+
+        <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
           {/* Email */}
           <div>
             <label className="block mb-1 font-semibold text-black">Email</label>
@@ -91,23 +135,57 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Nút đăng ký */}
+          <div>
+            <label className="block mb-2 font-semibold text-black">Bạn là?</label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[
+                { label: "Học sinh / Phụ huynh", value: "STUDENT", desc: "Nhận bài học, theo dõi tiến độ" },
+                { label: "Giảng viên", value: "TEACHER", desc: "Quản lý lớp, nhận feedback", accent: true },
+              ].map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  onClick={() => setRole(option.value as "STUDENT" | "TEACHER")}
+                  className={`rounded-2xl border px-4 py-3 text-left transition ${
+                    role === option.value
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-gray-200 bg-white hover:border-orange-300"
+                  }`}
+                >
+                  <p className="font-semibold text-black">{option.label}</p>
+                  <p className="text-sm text-gray-600">{option.desc}</p>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Lựa chọn này được lưu xuống cơ sở dữ liệu để phân quyền khi đăng nhập.
+            </p>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white py-2 rounded-lg font-semibold transition duration-200"
+            className="w-full rounded-xl bg-orange-500 py-2.5 font-semibold text-white shadow-lg shadow-orange-300/50 transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
           >
             {loading ? "Đang đăng ký..." : "Đăng ký"}
           </button>
         </form>
 
-        {/* Đăng nhập */}
-        <div className="text-center mt-4 text-sm">
-          <span>Đã có tài khoản? </span>
-          <Link href="/login" className="text-orange-500 hover:underline font-semibold">
-            Đăng nhập
-          </Link>
+        <div className="mt-6 grid gap-3 text-center text-sm">
+          <p>
+            Đã có tài khoản?{" "}
+            <Link href="/login" className="text-orange-500 font-semibold hover:underline">
+              Đăng nhập học sinh
+            </Link>
+          </p>
+          <p>
+            Giảng viên đã có tài khoản?{" "}
+            <Link href="/login-teacher" className="text-orange-500 font-semibold hover:underline">
+              Vào cổng giảng viên
+            </Link>
+          </p>
         </div>
+        </section>
       </div>
     </div>
   );

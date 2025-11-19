@@ -73,30 +73,36 @@ export default function LoginPage() {
 
         {/* Cột phải: form đăng nhập giữ nguyên */}
         <div className="bg-white p-8 rounded-3xl shadow-2xl w-full md:w-1/3 text-center">
-          <h1 className="text-3xl font-extrabold text-orange-700 mb-2">ĐĂNG NHẬP HỌC TOÁN TRỰC TUYẾN</h1>
-          <p className="text-orange-600 font-medium mb-6">Cùng vui học mỗi ngày!</p>
+          <h1 className="text-3xl font-black text-orange-700 mb-2 tracking-wide uppercase">
+            ĐĂNG NHẬP HỌC TOÁN TRỰC TUYẾN
+          </h1>
+          <p className="text-orange-600 font-bold mb-6 text-base">Cùng vui học mỗi ngày!</p>
 
           <form onSubmit={handleLogin} className="space-y-4 text-left">
             <div>
-              <label className="block mb-1 font-semibold text-gray-800">Tên đăng nhập</label>
+              <label className="block mb-1 font-bold text-gray-900 uppercase text-sm tracking-wide">
+                Tên đăng nhập
+              </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Nhập username"
-                className="w-full border border-orange-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-400"
+                className="w-full border border-orange-300 rounded-lg px-3 py-2 font-semibold text-gray-900 focus:ring-2 focus:ring-orange-400"
                 required
               />
             </div>
 
             <div>
-              <label className="block mb-1 font-semibold text-gray-800">Mật khẩu</label>
+              <label className="block mb-1 font-bold text-gray-900 uppercase text-sm tracking-wide">
+                Mật khẩu
+              </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Nhập mật khẩu"
-                className="w-full border border-orange-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-400"
+                className="w-full border border-orange-300 rounded-lg px-3 py-2 font-semibold text-gray-900 focus:ring-2 focus:ring-orange-400"
                 required
               />
             </div>
@@ -104,12 +110,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-70 text-white py-2 rounded-lg font-semibold shadow-md transition-all duration-200"
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-70 text-white py-3 rounded-xl text-base font-extrabold shadow-md transition-all duration-200 tracking-wide uppercase"
             >
               {loading ? 'Đang đăng nhập…' : 'Đăng nhập'}
             </button>
 
-            {err && <p className="text-red-600 text-sm">{err}</p>}
+            {err && <p className="text-red-600 text-sm font-semibold text-center">{err}</p>}
           </form>
 
           <div className="mt-6 pt-4 border-t border-orange-200 text-sm">
@@ -117,6 +123,19 @@ export default function LoginPage() {
             <Link href="/register" className="text-orange-600 font-semibold hover:underline">
               Đăng ký ngay
             </Link>
+          </div>
+
+          <div className="mt-6 pt-5 border-t border-dashed border-orange-200 text-sm">
+            <p className="text-gray-700 mb-2 font-semibold text-center">Bạn là giảng viên?</p>
+            <Link
+              href="/login-teacher"
+              className="inline-flex w-full items-center justify-center rounded-2xl border border-orange-300 bg-white px-4 py-2.5 font-semibold text-orange-600 shadow-sm hover:border-orange-400 hover:bg-orange-50 transition"
+            >
+              Đăng nhập giảng viên
+            </Link>
+            <p className="mt-2 text-xs text-gray-500 text-center">
+              Liên kết này dẫn đến cổng dành riêng cho giảng viên để quản lý hồ sơ và phản hồi học viên.
+            </p>
           </div>
         </div>
       </div>

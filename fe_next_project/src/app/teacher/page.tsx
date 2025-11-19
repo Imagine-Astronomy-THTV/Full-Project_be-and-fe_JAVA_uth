@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Feedback, getAllFeedbacks } from "@/lib/api";
 
 export default function TeacherProfile() {
   const [teacher, setTeacher] = useState({
@@ -20,6 +21,104 @@ export default function TeacherProfile() {
   });
 
   const [photo, setPhoto] = useState<string | null>(null);
+  const [teacherEmail, setTeacherEmail] = useState("");
+  const [lastLoginAt, setLastLoginAt] = useState<string | null>(null);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [filterCourse, setFilterCourse] = useState("ALL");
+  const [filterRating, setFilterRating] = useState("ALL");
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storedEmail = localStorage.getItem("teacherEmail");
+    const storedLogin = localStorage.getItem("teacherLastLogin");
+
+    if (storedEmail) {
+      setTeacherEmail(storedEmail);
+      setTeacher((prev) => ({ ...prev, email: storedEmail }));
+    }
+
+    if (storedLogin) {
+      setLastLoginAt(storedLogin);
+    }
+  }, []);
+
+  const fetchFeedbacks = useCallback(async () => {
+    setFeedbackLoading(true);
+    setFeedbackError(null);
+
+    try {
+      const data = await getAllFeedbacks();
+      setFeedbacks(data);
+      setLastSyncedAt(new Date().toISOString());
+    } catch (err: any) {
+      setFeedbackError(err?.message || "Không thể tải danh sách feedback. Vui lòng thử lại.");
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFeedbacks();
+  }, [fetchFeedbacks]);
+
+  const courseOptions = useMemo(() => {
+    const unique = new Set<string>();
+    feedbacks.forEach((fb) => {
+      if (fb.course) unique.add(fb.course);
+    });
+    return Array.from(unique);
+  }, [feedbacks]);
+
+  const filteredFeedbacks = useMemo(() => {
+    return feedbacks.filter((fb) => {
+      const matchCourse = filterCourse === "ALL" || fb.course === filterCourse;
+      const matchRating = filterRating === "ALL" || fb.rating === Number(filterRating);
+      const matchKeyword =
+        !searchKeyword ||
+        fb.comments.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+        fb.teacher.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+        (fb.name ?? "").toLowerCase().includes(searchKeyword.toLowerCase());
+
+      return matchCourse && matchRating && matchKeyword;
+    });
+  }, [feedbacks, filterCourse, filterRating, searchKeyword]);
+
+  const averageRating = useMemo(() => {
+    if (!feedbacks.length) return 0;
+    const sum = feedbacks.reduce((acc, fb) => acc + fb.rating, 0);
+    return Number((sum / feedbacks.length).toFixed(1));
+  }, [feedbacks]);
+
+  const formattedLastLogin = useMemo(() => {
+    if (!lastLoginAt) return null;
+    const date = new Date(lastLoginAt);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString("vi-VN", { hour12: false });
+  }, [lastLoginAt]);
+
+  const formattedLastSyncedAt = useMemo(() => {
+    if (!lastSyncedAt) return null;
+    const date = new Date(lastSyncedAt);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString("vi-VN", { hour12: false });
+  }, [lastSyncedAt]);
+
+  const formatDateLabel = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  };
+
+  const formatDateTimeLabel = (value?: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString("vi-VN", { hour12: false });
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -98,6 +197,15 @@ export default function TeacherProfile() {
           Đăng xuất
         </Link>
       </div>
+
+      {teacherEmail && (
+        <div className="max-w-6xl mx-auto px-4 -mt-2 mb-4 text-sm text-orange-100/70 flex flex-wrap gap-2">
+          <span>Tài khoản: <span className="font-semibold text-orange-200">{teacherEmail}</span></span>
+          {formattedLastLogin && (
+            <span className="text-orange-200/70">• Lần đăng nhập gần nhất: {formattedLastLogin}</span>
+          )}
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-4 pb-10">
         <div className="flex flex-col lg:flex-row gap-8">
@@ -427,6 +535,166 @@ export default function TeacherProfile() {
             </div>
           </div>
         </div>
+
+        <section className="mt-10 rounded-3xl border border-orange-800/60 bg-[#2a1207] p-6 shadow-[0_0_40px_rgba(0,0,0,0.65)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-2xl font-extrabold text-orange-200">Phản hồi từ học viên</h3>
+              <p className="text-sm text-orange-100/70">
+                {formattedLastSyncedAt
+                  ? `Đã đồng bộ lần cuối lúc ${formattedLastSyncedAt}.`
+                  : "Nhấn “Tải lại” để đồng bộ dữ liệu từ form Feedback."}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={fetchFeedbacks}
+                disabled={feedbackLoading}
+                className="rounded-full border border-orange-600/60 bg-[#3c1b0b] px-5 py-2 text-sm font-semibold text-orange-100 transition hover:bg-[#4b210f] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {feedbackLoading ? "Đang đồng bộ..." : "Tải lại"}
+              </button>
+
+              <Link
+                href="/feedback"
+                className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-black shadow-[0_0_18px_rgba(248,148,80,0.7)] transition hover:bg-orange-400"
+              >
+                Mở form Feedback
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-orange-800/60 bg-[#1b0703] p-4">
+              <p className="text-xs uppercase tracking-widest text-orange-300/70">Tổng số</p>
+              <p className="mt-2 text-3xl font-extrabold text-orange-200">{feedbacks.length}</p>
+              <p className="text-sm text-orange-200/60">Feedback đã lưu</p>
+            </div>
+
+            <div className="rounded-2xl border border-orange-800/60 bg-[#1b0703] p-4">
+              <p className="text-xs uppercase tracking-widest text-orange-300/70">Điểm trung bình</p>
+              <p className="mt-2 text-3xl font-extrabold text-amber-300">{averageRating || "--"}</p>
+              <p className="text-sm text-orange-200/60">/5 sao</p>
+            </div>
+
+            <div className="rounded-2xl border border-orange-800/60 bg-[#1b0703] p-4">
+              <p className="text-xs uppercase tracking-widest text-orange-300/70">Đang hiển thị</p>
+              <p className="mt-2 text-3xl font-extrabold text-emerald-300">{filteredFeedbacks.length}</p>
+              <p className="text-sm text-orange-200/60">Sau khi áp dụng bộ lọc</p>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-orange-200/80">Khoá học</label>
+              <select
+                value={filterCourse}
+                onChange={(e) => setFilterCourse(e.target.value)}
+                className="h-11 w-full rounded-xl border border-orange-700/60 bg-[#1b0703] px-3 text-sm text-orange-50 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/40"
+              >
+                <option value="ALL">Tất cả môn học</option>
+                {courseOptions.map((course) => (
+                  <option key={course} value={course}>
+                    {course}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-orange-200/80">Mức sao</label>
+              <select
+                value={filterRating}
+                onChange={(e) => setFilterRating(e.target.value)}
+                className="h-11 w-full rounded-xl border border-orange-700/60 bg-[#1b0703] px-3 text-sm text-orange-50 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/40"
+              >
+                <option value="ALL">Tất cả</option>
+                {[5, 4, 3, 2, 1].map((rating) => (
+                  <option key={rating} value={rating}>
+                    {rating} sao
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-orange-200/80">Từ khoá</label>
+              <input
+                type="text"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                placeholder="Ví dụ: bài tập khó, lớp 9..."
+                className="h-11 w-full rounded-xl border border-orange-700/60 bg-[#1b0703] px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/40"
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 max-h-[360px] space-y-4 overflow-y-auto pr-1">
+            {feedbackLoading && (
+              <div className="rounded-2xl border border-orange-800/60 bg-[#1b0703] p-6 text-center text-sm text-orange-200">
+                Đang tải feedback từ máy chủ...
+              </div>
+            )}
+
+            {!feedbackLoading && feedbackError && (
+              <div className="rounded-2xl border border-red-500/50 bg-red-900/20 p-6 text-center text-sm text-red-200">
+                {feedbackError}
+              </div>
+            )}
+
+            {!feedbackLoading && !feedbackError && filteredFeedbacks.length === 0 && (
+              <div className="rounded-2xl border border-orange-800/60 bg-[#1b0703] p-6 text-center text-sm text-orange-200">
+                Chưa có phản hồi phù hợp với bộ lọc hiện tại.
+              </div>
+            )}
+
+            {!feedbackLoading &&
+              !feedbackError &&
+              filteredFeedbacks.map((fb) => (
+                <div key={fb.id} className="rounded-2xl border border-orange-800/60 bg-[#1b0703] p-5">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-orange-300/80">{fb.course}</p>
+                      <h4 className="text-xl font-semibold text-orange-50">Giảng viên: {fb.teacher}</h4>
+                      <p className="text-sm text-orange-200/70">
+                        {formatDateLabel(fb.date)} • {fb.mode || "Không rõ hình thức"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-4xl font-black text-amber-300">
+                        {fb.rating}
+                        <span className="text-base font-semibold text-amber-100">/5</span>
+                      </span>
+                      {formatDateTimeLabel(fb.createdAt) && (
+                        <p className="text-xs text-orange-200/60">Gửi lúc {formatDateTimeLabel(fb.createdAt)}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-sm text-orange-50">{fb.comments}</p>
+
+                  {fb.suggestions && (
+                    <p className="mt-2 text-xs text-orange-200/80">
+                      <span className="font-semibold text-orange-100">Góp ý:</span> {fb.suggestions}
+                    </p>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-orange-200/80">
+                    <span className="rounded-full border border-orange-700/70 px-3 py-1">
+                      {fb.anonymous ? "Ẩn danh" : `Người gửi: ${fb.name || "Học viên"}`}
+                    </span>
+                    {fb.useful && (
+                      <span className="rounded-full border border-orange-700/70 px-3 py-1">
+                        Đánh giá hữu ích: {fb.useful === "yes" ? "Có" : "Chưa"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
       </div>
 
       <style jsx>{`
