@@ -18,19 +18,28 @@ export default function ClassFeedbackPage() {
   });
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value, type, checked } = e.target as HTMLInputElement;
-    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
-  const setRating = (n: number) => setForm((p) => ({ ...p, rating: n }));
+  const setRating = (n: number) =>
+    setForm((p) => ({
+      ...p,
+      rating: n,
+    }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: gọi API lưu nếu cần
+    
     alert("Cảm ơn bạn! Đánh giá đã được ghi nhận.");
-    // reset nhẹ
+    
     setForm({
       name: "",
       course: "",
@@ -115,15 +124,10 @@ export default function ClassFeedbackPage() {
                   <option value="Online">Online</option>
                   <option value="Hybrid">Kết hợp (Hybrid)</option>
                 </select>
-                {/* mũi tên căn giữa */}
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-rose-600">
-                    <path
-                      fillRule="evenodd"
-                      d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+
+                {/* mũi tên đơn giản, không dùng SVG để khỏi lỗi TS */}
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-rose-600">
+                  <span className="text-xs">▼</span>
                 </span>
               </div>
             </div>
@@ -149,7 +153,9 @@ export default function ClassFeedbackPage() {
                 ))}
               </div>
               <p className="mt-1 text-sm text-gray-500">
-                {form.rating ? `Bạn chọn ${form.rating}/5` : "Chọn số sao để đánh giá."}
+                {form.rating
+                  ? `Bạn chọn ${form.rating}/5`
+                  : "Chọn số sao để đánh giá."}
               </p>
             </div>
 
@@ -242,25 +248,26 @@ export default function ClassFeedbackPage() {
 
         {/* Footer nav */}
         <div className="mt-6 flex justify-center gap-4">
-        <Link
+          <Link
             href="/login"
             className="inline-flex items-center justify-center h-11 min-w-[200px] px-6 rounded-full bg-rose-500 text-white font-semibold shadow hover:bg-rose-600"
-        >
+          >
             Trang chủ
-        </Link>
+          </Link>
 
-        <Link
-            href="/teacher"
+          <Link
+            href="/student"
             className="inline-flex items-center justify-center h-11 min-w-[200px] px-6 rounded-full bg-rose-500 text-white font-semibold shadow hover:bg-rose-600"
-        >
-            Tới trang giảng viên
-        </Link>
+          >
+            Quay về trang sinh viên
+          </Link>
         </div>
-
       </div>
 
       <style jsx>{`
-        ::placeholder { font-style: italic; }
+        ::placeholder {
+          font-style: italic;
+        }
       `}</style>
     </div>
   );
@@ -270,7 +277,9 @@ export default function ClassFeedbackPage() {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="mb-1 block text-sm font-semibold text-gray-700">{children}</label>
+    <label className="mb-1 block text-sm font-semibold text-gray-700">
+      {children}
+    </label>
   );
 }
 
@@ -311,7 +320,10 @@ function RadioGroup({
       <Label>{label}</Label>
       <div className="flex gap-4 rounded-xl border border-rose-200 bg-white px-3 py-2">
         {options.map((opt) => (
-          <label key={opt.value} className="flex cursor-pointer items-center gap-2">
+          <label
+            key={opt.value}
+            className="flex cursor-pointer items-center gap-2"
+          >
             <input
               type="radio"
               name={name}

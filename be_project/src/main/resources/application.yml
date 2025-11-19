@@ -6,8 +6,8 @@ spring:
     name: be_project
   datasource:
     url: jdbc:sqlserver://localhost:1433;databaseName=elearning;encrypt=false;trustServerCertificate=true;instanceName=SQLEXPRESS
-    username: webmath_user
-    password: password123
+    username: sa
+    password: 123456
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   jpa:
@@ -27,6 +27,4 @@ jwt:
   secret: "YOUR_SUPER_SECRET_KEY_256BIT_!!!"
   expiration-ms: 86400000
 
-# Bạn đã cấu hình CORS bằng bean trong SecurityConfig rồi ->
-# không cần block 'cors.origins' tuỳ biến ở YAML nữa.
 
