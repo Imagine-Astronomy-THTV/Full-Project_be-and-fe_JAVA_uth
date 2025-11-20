@@ -731,8 +731,6 @@ export default function StudentDashboard() {
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <TileStat title="Nhắc nhở" value={reminders} />
-
                     <TileLink
                         label="Vào lớp học online sắp tới"
                         sub="Zoom / Google Meet"
@@ -759,6 +757,13 @@ export default function StudentDashboard() {
                         sub="Feedback giáo viên"
                         icon="📝"
                         href="/feedback"
+                    />
+
+                    <TileLink
+                        label="Chat với giảng viên"
+                        sub="Nhắn tin trực tiếp"
+                        icon="💬"
+                        href="/chat"
                     />
                 </div>
 

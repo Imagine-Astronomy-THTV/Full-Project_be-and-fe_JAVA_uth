@@ -292,6 +292,65 @@ export async function getAllFeedbacks(): Promise<Feedback[]> {
   return apiCall<Feedback[]>('/api/feedback');
 }
 
+// Message/Chat interfaces and functions
+export interface Message {
+  id: number;
+  senderId: number;
+  senderName: string;
+  senderEmail: string;
+  receiverId: number;
+  receiverName: string;
+  receiverEmail: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface MessageRequest {
+  receiverId: number;
+  content: string;
+}
+
+/**
+ * Send a message
+ */
+export async function sendMessage(data: MessageRequest): Promise<Message> {
+  return apiCall<Message>('/api/messages/send', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Get conversation between current user and another user
+ */
+export async function getConversation(otherUserId: number): Promise<Message[]> {
+  return apiCall<Message[]>(`/api/messages/conversation/${otherUserId}`);
+}
+
+/**
+ * Get all unread messages for current user
+ */
+export async function getUnreadMessages(): Promise<Message[]> {
+  return apiCall<Message[]>('/api/messages/unread');
+}
+
+/**
+ * Get all messages for current user
+ */
+export async function getAllMessages(): Promise<Message[]> {
+  return apiCall<Message[]>('/api/messages/all');
+}
+
+/**
+ * Mark conversation as read
+ */
+export async function markConversationAsRead(otherUserId: number): Promise<void> {
+  return apiCall<void>(`/api/messages/mark-read/${otherUserId}`, {
+    method: 'POST',
+  });
+}
+
 
 
 

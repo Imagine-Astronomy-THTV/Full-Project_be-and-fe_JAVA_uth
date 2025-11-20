@@ -110,7 +110,7 @@ const supportChannels: SupportChannel[] = [
     title: "Chat trực tiếp với học sinh",
     description: "Phản hồi câu hỏi bài tập, gửi link hướng dẫn nhanh.",
     actionLabel: "Mở MathBridge Chat",
-    actionHref: "/student",
+    actionHref: "/chat",
   },
   {
     id: "ticket",
