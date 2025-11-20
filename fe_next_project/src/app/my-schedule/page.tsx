@@ -42,26 +42,24 @@ export default function MySchedulePage() {
                 setLoading(true);
                 setError(null);
 
-                // Lấy thông tin học sinh hiện tại để lấy student ID
-                const student = await apiCall<Student>("/api/students/me", {
-                    method: "GET",
-                });
-
-                if (!student || !student.id) {
-                    setError("Không tìm thấy thông tin học sinh. Vui lòng đăng nhập lại.");
-                    setLoading(false);
-                    return;
-                }
-
-                setStudentId(student.id);
-
-                // Lấy danh sách sessions của học sinh
+                console.log("Loading sessions for current student...");
+                // Lấy danh sách sessions của học sinh hiện tại (tự động lấy từ authentication)
                 const sessionsData = await apiCall<Session[]>(
-                    `/api/sessions/student/${student.id}`,
+                    "/api/sessions/student/me",
                     {
                         method: "GET",
                     }
                 );
+
+                console.log("Sessions data received:", sessionsData);
+                console.log("Type of sessionsData:", typeof sessionsData);
+                console.log("Is array?", Array.isArray(sessionsData));
+                console.log("Number of sessions:", sessionsData?.length || 0);
+                
+                // Debug: Log raw response if available
+                if (sessionsData) {
+                    console.log("First session (if any):", sessionsData[0]);
+                }
 
                 // Sắp xếp sessions theo ngày giờ (mới nhất trước)
                 const sortedSessions = (sessionsData || []).sort((a, b) => {
@@ -70,23 +68,30 @@ export default function MySchedulePage() {
                     return dateB - dateA; // Mới nhất trước
                 });
 
+                console.log("Sorted sessions:", sortedSessions);
                 setSessions(sortedSessions);
             } catch (err: unknown) {
-                console.error("Load sessions failed:", err);
                 const errorMessage =
                     err instanceof Error
                         ? err.message
                         : "Không thể tải lịch học. Vui lòng thử lại.";
-                setError(errorMessage);
-
-                // Nếu lỗi 401, chuyển về trang đăng nhập
+                
+                // Check if it's an authentication error
                 if (
                     err instanceof Error &&
-                    (err.message.includes("401") || err.message.includes("đăng nhập"))
+                    (errorMessage.includes("401") || errorMessage.includes("đăng nhập") || errorMessage.includes("UNAUTHORIZED"))
                 ) {
                     alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
                     window.location.href = "/login";
                     return;
+                }
+                
+                // For 403 or other errors, just show empty list
+                if (errorMessage.includes("403") || errorMessage.includes("FORBIDDEN") || errorMessage.includes("Request failed")) {
+                    setSessions([]);
+                    setError(null); // Don't show error for 403
+                } else {
+                    setError(errorMessage);
                 }
             } finally {
                 setLoading(false);

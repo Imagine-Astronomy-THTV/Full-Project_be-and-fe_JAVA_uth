@@ -24,7 +24,7 @@ public class Session {
     private Tutor tutor;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false)
+    @JoinColumn(name = "student_id", nullable = false, referencedColumnName = "id")
     @NotNull(message = "Student is required")
     private Student student;
 

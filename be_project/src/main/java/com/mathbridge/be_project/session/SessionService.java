@@ -2,8 +2,10 @@ package com.mathbridge.be_project.session;
 
 import com.mathbridge.be_project.common.SessionStatus;
 import com.mathbridge.be_project.student.Student;
+import com.mathbridge.be_project.student.StudentRepository;
 import com.mathbridge.be_project.tutor.Tutor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,9 @@ public class SessionService {
     @Autowired
     private SessionRepository sessionRepository;
     
+    @Autowired
+    private StudentRepository studentRepository;
+    
     // Create new session
     public Session createSession(Session session) {
         // Check for conflicts before creating
@@ -29,6 +34,112 @@ public class SessionService {
         }
         
         return sessionRepository.save(session);
+    }
+    
+    // Create session from request (simplified form data)
+    public Session createSessionFromRequest(SessionRequest request, Tutor tutor) {
+        // Combine date and time into LocalDateTime
+        LocalDateTime scheduledDate = request.getDate().atTime(request.getTime());
+        
+        // Get student from request or use first available student from database
+        Student student = getStudentFromRequest(request);
+        
+        // Set subject (default to "Toán học" if not provided)
+        String subject = (request.getSubject() != null && !request.getSubject().trim().isEmpty()) 
+                ? request.getSubject().trim() 
+                : "Toán học";
+        
+        // Set duration (default to 60 minutes)
+        Integer duration = 60;
+        
+        // Get hourly rate from tutor, or default to 0
+        BigDecimal hourlyRate = tutor.getHourlyRate() != null && tutor.getHourlyRate().compareTo(BigDecimal.ZERO) > 0
+                ? tutor.getHourlyRate()
+                : BigDecimal.valueOf(200000); // Default 200,000 VND per hour
+        
+        // Calculate total amount
+        BigDecimal totalAmount = hourlyRate.multiply(BigDecimal.valueOf(duration / 60.0));
+        
+        // Set location based on method
+        String location = "online".equalsIgnoreCase(request.getMethod()) 
+                ? "Online (Zoom / Google Meet)" 
+                : "Học trực tiếp";
+        
+        // Verify student ID exists in database before creating session
+        if (student.getId() == null || !studentRepository.existsById(student.getId())) {
+            throw new RuntimeException("Học sinh không tồn tại trong hệ thống. Vui lòng chọn học sinh khác.");
+        }
+        
+        // Create session
+        Session session = new Session();
+        session.setTutor(tutor);
+        session.setStudent(student);
+        session.setSubject(subject);
+        session.setScheduledDate(scheduledDate);
+        session.setDuration(duration);
+        session.setStatus(SessionStatus.SCHEDULED);
+        session.setLocation(location);
+        session.setNotes(request.getNote());
+        session.setHourlyRate(hourlyRate);
+        session.setTotalAmount(totalAmount);
+        
+        // Check for conflicts before creating
+        if (hasConflictingSessions(tutor.getId(), 
+                                  scheduledDate, 
+                                  scheduledDate.plusMinutes(duration))) {
+            throw new RuntimeException("Đã có lịch học trùng thời gian. Vui lòng chọn thời gian khác.");
+        }
+        
+        try {
+            return sessionRepository.save(session);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Handle foreign key constraint violations
+            if (e.getMessage() != null && e.getMessage().contains("FOREIGN KEY")) {
+                throw new RuntimeException("Lỗi: Học sinh không tồn tại trong hệ thống. Vui lòng chọn học sinh khác hoặc thêm học sinh mới.");
+            }
+            throw e;
+        }
+    }
+    
+    // Get student from request or use first available student from database
+    private Student getStudentFromRequest(SessionRequest request) {
+        Student student = null;
+        
+        // If studentId is provided, use that student
+        if (request.getStudentId() != null && request.getStudentId() > 0) {
+            Optional<Student> studentOpt = studentRepository.findById(request.getStudentId());
+            if (studentOpt.isPresent()) {
+                student = studentOpt.get();
+                // Verify student actually exists and has an ID
+                if (student.getId() == null) {
+                    throw new RuntimeException("Học sinh không hợp lệ: ID không tồn tại");
+                }
+            } else {
+                throw new RuntimeException("Không tìm thấy học sinh với ID: " + request.getStudentId() + ". Vui lòng chọn học sinh khác hoặc thêm học sinh mới.");
+            }
+        } else {
+            // Otherwise, get the first available student from database
+            List<Student> students = studentRepository.findAll();
+            if (students.isEmpty()) {
+                throw new RuntimeException("Không có học sinh nào trong hệ thống. Vui lòng thêm học sinh trước khi đặt lịch học.");
+            }
+            
+            student = students.get(0);
+            System.out.println("WARNING: No student selected, using first student from database. Student ID: " + student.getId() + ", Name: " + student.getFullName());
+            // Verify student has an ID
+            if (student.getId() == null) {
+                throw new RuntimeException("Học sinh không hợp lệ: ID không tồn tại");
+            }
+        }
+        
+        System.out.println("Creating session with Student ID: " + student.getId() + ", Name: " + student.getFullName());
+        
+        // Final verification: ensure student ID is valid
+        if (student == null || student.getId() == null) {
+            throw new RuntimeException("Không thể xác định học sinh cho buổi học. Vui lòng thử lại.");
+        }
+        
+        return student;
     }
     
     // Get session by ID
@@ -46,13 +157,45 @@ public class SessionService {
     // Get sessions by tutor
     @Transactional(readOnly = true)
     public List<Session> getSessionsByTutor(Long tutorId) {
-        return sessionRepository.findByTutorId(tutorId);
+        List<Session> sessions = sessionRepository.findByTutorId(tutorId);
+        // Trigger lazy loading for User in Tutor and Student to avoid LazyInitializationException
+        if (sessions != null) {
+            for (Session session : sessions) {
+                if (session.getTutor() != null && session.getTutor().getUser() != null) {
+                    // Trigger lazy loading
+                    session.getTutor().getUser().getEmail();
+                    session.getTutor().getUser().getFullName();
+                }
+                if (session.getStudent() != null && session.getStudent().getUser() != null) {
+                    // Trigger lazy loading
+                    session.getStudent().getUser().getEmail();
+                    session.getStudent().getUser().getFullName();
+                }
+            }
+        }
+        return sessions;
     }
     
     // Get sessions by student
     @Transactional(readOnly = true)
     public List<Session> getSessionsByStudent(Long studentId) {
-        return sessionRepository.findByStudentId(studentId);
+        List<Session> sessions = sessionRepository.findByStudentId(studentId);
+        // Trigger lazy loading for User in Tutor and Student to avoid LazyInitializationException
+        if (sessions != null) {
+            for (Session session : sessions) {
+                if (session.getTutor() != null && session.getTutor().getUser() != null) {
+                    // Trigger lazy loading
+                    session.getTutor().getUser().getEmail();
+                    session.getTutor().getUser().getFullName();
+                }
+                if (session.getStudent() != null && session.getStudent().getUser() != null) {
+                    // Trigger lazy loading
+                    session.getStudent().getUser().getEmail();
+                    session.getStudent().getUser().getFullName();
+                }
+            }
+        }
+        return sessions;
     }
     
     // Get sessions by status

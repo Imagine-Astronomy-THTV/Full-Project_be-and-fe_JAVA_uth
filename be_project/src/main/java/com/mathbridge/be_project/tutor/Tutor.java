@@ -1,6 +1,6 @@
 package com.mathbridge.be_project.tutor;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.mathbridge.be_project.common.ApprovalStatus;
 import com.mathbridge.be_project.user.User;
 import jakarta.persistence.*;
@@ -21,7 +21,7 @@ public class Tutor {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @NotNull(message = "User is required")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password"})
+    @JsonIgnore
     private User user;
 
     @Column(name = "employee_id", length = 50, unique = true)
@@ -121,6 +121,15 @@ public class Tutor {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    // Getter methods for JSON serialization (frontend needs these)
+    public String getFullName() {
+        return user != null ? user.getFullName() : null;
+    }
+
+    public String getEmail() {
+        return user != null ? user.getEmail() : null;
     }
 
     public String getEmployeeId() {

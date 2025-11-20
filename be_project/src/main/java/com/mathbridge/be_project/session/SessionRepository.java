@@ -13,10 +13,18 @@ import java.util.List;
 public interface SessionRepository extends JpaRepository<Session, Long> {
     
     // Find sessions by tutor
-    List<Session> findByTutorId(Long tutorId);
+    @Query("SELECT s FROM Session s " +
+           "LEFT JOIN FETCH s.tutor " +
+           "LEFT JOIN FETCH s.student " +
+           "WHERE s.tutor.id = :tutorId")
+    List<Session> findByTutorId(@Param("tutorId") Long tutorId);
     
     // Find sessions by student
-    List<Session> findByStudentId(Long studentId);
+    @Query("SELECT s FROM Session s " +
+           "LEFT JOIN FETCH s.tutor " +
+           "LEFT JOIN FETCH s.student " +
+           "WHERE s.student.id = :studentId")
+    List<Session> findByStudentId(@Param("studentId") Long studentId);
     
     // Find sessions by status
     List<Session> findByStatus(SessionStatus status);

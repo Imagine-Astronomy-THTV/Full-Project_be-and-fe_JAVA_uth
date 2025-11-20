@@ -1,6 +1,8 @@
 package com.mathbridge.be_project.auth;
 
 import com.mathbridge.be_project.security.JwtUtils;
+import com.mathbridge.be_project.student.Student;
+import com.mathbridge.be_project.student.StudentRepository;
 import com.mathbridge.be_project.tutor.Tutor;
 import com.mathbridge.be_project.tutor.TutorRepository;
 import com.mathbridge.be_project.user.*;
@@ -20,6 +22,7 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
     private final TutorRepository tutorRepository;
+    private final StudentRepository studentRepository;
 
     public AuthResponse login(LoginRequest request) {
         try {
@@ -83,6 +86,19 @@ public class AuthService {
             String employeeId = "GV" + String.format("%06d", (int)(Math.random() * 900000) + 100000);
             tutor.setEmployeeId(employeeId);
             tutorRepository.save(tutor);
+        }
+        
+        // Nếu là học sinh (STUDENT), tự động tạo Student record
+        if (savedUser.getRole() == UserRole.STUDENT) {
+            // Kiểm tra xem đã có Student record chưa
+            if (studentRepository.findByUser(savedUser).isEmpty()) {
+                Student student = new Student();
+                student.setUser(savedUser);
+                student.setFullName(savedUser.getFullName() != null && !savedUser.getFullName().isEmpty() 
+                        ? savedUser.getFullName() : "Học sinh");
+                student.setEmail(savedUser.getEmail());
+                studentRepository.save(student);
+            }
         }
         
         String token = jwtUtils.generateToken(savedUser.getEmail(), savedUser.getRole().name());

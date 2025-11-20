@@ -1,6 +1,12 @@
 package com.mathbridge.be_project.session;
 
 import com.mathbridge.be_project.common.SessionStatus;
+import com.mathbridge.be_project.student.Student;
+import com.mathbridge.be_project.student.StudentService;
+import com.mathbridge.be_project.tutor.Tutor;
+import com.mathbridge.be_project.tutor.TutorService;
+import com.mathbridge.be_project.user.User;
+import com.mathbridge.be_project.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -9,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -24,6 +32,18 @@ public class SessionController {
     @Autowired
     private SessionService sessionService;
     
+    @Autowired
+    private TutorService tutorService;
+    
+    @Autowired
+    private UserService userService;
+    
+    @Autowired
+    private com.mathbridge.be_project.student.StudentService studentService;
+    
+    @Autowired
+    private com.mathbridge.be_project.student.StudentRepository studentRepository;
+    
     @PostMapping
     @Operation(summary = "Create a new session", description = "Schedule a new tutoring session")
     public ResponseEntity<Session> createSession(@Valid @RequestBody Session session) {
@@ -35,6 +55,133 @@ public class SessionController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
+    }
+    
+    @PostMapping("/schedule")
+    @Operation(summary = "Schedule a new session from form", description = "Schedule a new session using simplified request from frontend")
+    public ResponseEntity<?> scheduleSession(@Valid @RequestBody SessionRequest request) {
+        try {
+            // Get current user from authentication
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(createErrorResponse("Bạn cần đăng nhập để đặt lịch học"));
+            }
+            
+            // Check if user is TUTOR role
+            if (currentUser.getRole() != com.mathbridge.be_project.common.UserRole.TUTOR) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(createErrorResponse("Tài khoản này không phải là giảng viên"));
+            }
+            
+            // Get or create tutor from current user
+            Optional<Tutor> tutorOpt = tutorService.getTutorByUser(currentUser);
+            Tutor tutor;
+            
+            if (tutorOpt.isEmpty()) {
+                // Auto-create Tutor record if user is TUTOR but doesn't have Tutor record
+                tutor = new Tutor();
+                tutor.setUser(currentUser);
+                // Generate employeeId: GV + 6 random digits
+                String employeeId = "GV" + String.format("%06d", (int)(Math.random() * 900000) + 100000);
+                tutor.setEmployeeId(employeeId);
+                tutor = tutorService.createTutor(tutor);
+            } else {
+                tutor = tutorOpt.get();
+            }
+            
+            // Create session from request
+            Session createdSession = sessionService.createSessionFromRequest(request, tutor);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdSession);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Handle foreign key constraint violations
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(createErrorResponse("Lỗi: Học sinh không tồn tại trong hệ thống. Vui lòng chọn học sinh khác hoặc thêm học sinh mới."));
+        } catch (RuntimeException e) {
+            // Check if it's a data integrity violation message
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && (errorMessage.contains("FOREIGN KEY") || 
+                                         errorMessage.contains("không tồn tại") ||
+                                         errorMessage.contains("Không tìm thấy học sinh"))) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(createErrorResponse(errorMessage));
+            }
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(createErrorResponse(errorMessage != null ? errorMessage : "Lỗi khi đặt lịch học"));
+        } catch (Exception e) {
+            e.printStackTrace(); // Log for debugging
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(createErrorResponse("Lỗi khi đặt lịch học: " + (e.getMessage() != null ? e.getMessage() : "Lỗi không xác định")));
+        }
+    }
+    
+    @GetMapping("/tutor/me")
+    @Operation(summary = "Get sessions for current tutor", description = "Retrieve all sessions for the currently authenticated tutor")
+    public ResponseEntity<?> getMySessions() {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(createErrorResponse("Bạn cần đăng nhập để xem lịch học"));
+            }
+            
+            // Check if user is TUTOR role
+            if (currentUser.getRole() != com.mathbridge.be_project.common.UserRole.TUTOR) {
+                // Return empty array if user is not a tutor
+                return ResponseEntity.ok(new java.util.ArrayList<>());
+            }
+            
+            Optional<Tutor> tutorOpt = tutorService.getTutorByUser(currentUser);
+            Tutor tutor;
+            
+            if (tutorOpt.isEmpty()) {
+                // Auto-create Tutor record if user is TUTOR but doesn't have Tutor record
+                tutor = new Tutor();
+                tutor.setUser(currentUser);
+                // Generate employeeId: GV + 6 random digits
+                String employeeId = "GV" + String.format("%06d", (int)(Math.random() * 900000) + 100000);
+                tutor.setEmployeeId(employeeId);
+                tutor = tutorService.createTutor(tutor);
+            } else {
+                tutor = tutorOpt.get();
+            }
+            
+            List<Session> sessions = sessionService.getSessionsByTutor(tutor.getId());
+            // Ensure we always return a list, even if empty
+            if (sessions == null) {
+                sessions = new java.util.ArrayList<>();
+            }
+            return ResponseEntity.ok(sessions);
+        } catch (Exception e) {
+            e.printStackTrace(); // Log for debugging
+            // Return empty array on error instead of error response
+            // This prevents the page from breaking
+            return ResponseEntity.ok(new java.util.ArrayList<>());
+        }
+    }
+    
+    /**
+     * Lấy user hiện tại từ SecurityContext (JWT token)
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        
+        String email = authentication.getName();
+        if (email == null || email.isEmpty()) {
+            return null;
+        }
+        
+        return userService.getUserByEmail(email).orElse(null);
+    }
+    
+    private java.util.Map<String, String> createErrorResponse(String message) {
+        java.util.Map<String, String> error = new java.util.HashMap<>();
+        error.put("error", message);
+        error.put("message", message);
+        return error;
     }
     
     @GetMapping
@@ -67,6 +214,72 @@ public class SessionController {
             @Parameter(description = "Student ID") @PathVariable Long studentId) {
         List<Session> sessions = sessionService.getSessionsByStudent(studentId);
         return ResponseEntity.ok(sessions);
+    }
+    
+    @GetMapping("/student/me")
+    @Operation(summary = "Get sessions for current student", description = "Retrieve all sessions for the currently authenticated student")
+    public ResponseEntity<?> getMyStudentSessions() {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(createErrorResponse("Bạn cần đăng nhập để xem lịch học"));
+            }
+            
+            // Check if user is STUDENT role
+            if (currentUser.getRole() != com.mathbridge.be_project.common.UserRole.STUDENT) {
+                // Return empty array if user is not a student
+                return ResponseEntity.ok(new java.util.ArrayList<>());
+            }
+            
+            // Get student from current user
+            Optional<Student> studentOpt = studentService.getStudentByUser(currentUser);
+            
+            if (studentOpt.isEmpty()) {
+                // Auto-create Student record if user is STUDENT but doesn't have Student record
+                Student student = new Student();
+                student.setUser(currentUser);
+                student.setFullName(currentUser.getFullName() != null && !currentUser.getFullName().isEmpty() 
+                        ? currentUser.getFullName() : "Học sinh");
+                student.setEmail(currentUser.getEmail());
+                // Save directly using repository
+                student = studentRepository.save(student);
+                studentOpt = Optional.of(student);
+                System.out.println("Auto-created Student record for user: " + currentUser.getEmail() + ", Student ID: " + student.getId());
+            }
+            
+            if (studentOpt.isEmpty()) {
+                // Return empty array if still no student record
+                System.out.println("No student record found for user: " + currentUser.getEmail());
+                return ResponseEntity.ok(new java.util.ArrayList<>());
+            }
+            
+            Student student = studentOpt.get();
+            System.out.println("Getting sessions for student ID: " + student.getId() + ", User: " + currentUser.getEmail());
+            
+            List<Session> sessions = sessionService.getSessionsByStudent(student.getId());
+            System.out.println("Found " + (sessions != null ? sessions.size() : 0) + " sessions for student ID: " + student.getId());
+            
+            // Ensure we always return a list, even if empty
+            if (sessions == null) {
+                sessions = new java.util.ArrayList<>();
+            }
+            
+            // Log session details for debugging
+            if (sessions != null && !sessions.isEmpty()) {
+                System.out.println("First session details: ID=" + sessions.get(0).getId() + 
+                    ", Subject=" + sessions.get(0).getSubject() + 
+                    ", Tutor=" + (sessions.get(0).getTutor() != null ? sessions.get(0).getTutor().getId() : "null") +
+                    ", Student=" + (sessions.get(0).getStudent() != null ? sessions.get(0).getStudent().getId() : "null"));
+            }
+            
+            return ResponseEntity.ok(sessions);
+        } catch (Exception e) {
+            e.printStackTrace(); // Log for debugging
+            // Return empty array on error instead of error response
+            // This prevents the page from breaking
+            return ResponseEntity.ok(new java.util.ArrayList<>());
+        }
     }
     
     @GetMapping("/status/{status}")
