@@ -19,13 +19,38 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
 
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        try {
+            // Xác thực user
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
 
-        User user = userService.getUserByEmail(request.getEmail()).orElseThrow();
-        String token = jwtUtils.generateToken(user.getEmail(), user.getRole().name());
-        return new AuthResponse(token, user.getRole().name());
+            User user = userService.getUserByEmail(request.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found with email: " + request.getEmail()));
+            
+            String token = jwtUtils.generateToken(user.getEmail(), user.getRole().name());
+            
+            // Tạo UserDTO với thông tin user
+            AuthResponse.UserDTO userDTO = new AuthResponse.UserDTO(
+                    user.getId(),
+                    user.getFullName(),
+                    user.getEmail(),
+                    user.getRole().name()
+            );
+            
+            // Tạo AuthResponse với đầy đủ thông tin
+            AuthResponse response = new AuthResponse();
+            response.setOk(true);
+            response.setMessage("Đăng nhập thành công");
+            response.setToken(token);
+            response.setUser(userDTO);
+            
+            return response;
+        } catch (BadCredentialsException e) {
+            throw new RuntimeException("Email hoặc mật khẩu không đúng", e);
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi khi đăng nhập: " + e.getMessage(), e);
+        }
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -42,8 +67,24 @@ public class AuthService {
         );
         user.setStatus(UserStatus.ACTIVE);
 
-        userService.createUser(user);
-        String token = jwtUtils.generateToken(user.getEmail(), user.getRole().name());
-        return new AuthResponse(token, user.getRole().name());
+        User savedUser = userService.createUser(user);
+        String token = jwtUtils.generateToken(savedUser.getEmail(), savedUser.getRole().name());
+        
+        // Tạo UserDTO với thông tin user
+        AuthResponse.UserDTO userDTO = new AuthResponse.UserDTO(
+                savedUser.getId(),
+                savedUser.getFullName(),
+                savedUser.getEmail(),
+                savedUser.getRole().name()
+        );
+        
+        // Tạo AuthResponse với đầy đủ thông tin
+        AuthResponse response = new AuthResponse();
+        response.setOk(true);
+        response.setMessage("Đăng ký thành công");
+        response.setToken(token);
+        response.setUser(userDTO);
+        
+        return response;
     }
 }

@@ -51,20 +51,48 @@ export interface Feedback {
  * Login API call
  */
 export async function login(credentials: LoginRequest): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(credentials),
-  });
+  try {
+    console.log('Calling login API:', `${API_BASE_URL}/api/auth/login`)
+    
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Đăng nhập thất bại' }));
-    throw new Error(error.message || error.error || 'Đăng nhập thất bại');
+    console.log('Login response status:', response.status, response.statusText)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ 
+        message: `Đăng nhập thất bại (HTTP ${response.status})` 
+      }));
+      console.error('Login error data:', errorData)
+      throw new Error(errorData.message || errorData.error || `Đăng nhập thất bại (HTTP ${response.status})`);
+    }
+
+    const data = await response.json();
+    console.log('Login success, received data:', { ...data, token: data.token ? '***' : 'missing' })
+    
+    // Backend có thể trả về token hoặc không có field token
+    // Kiểm tra các format có thể có
+    if (!data.token && data.accessToken) {
+      data.token = data.accessToken
+    }
+    
+    return data;
+  } catch (error: unknown) {
+    // Handle network errors
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      throw new Error(
+        `Không thể kết nối đến server backend (${API_BASE_URL}). ` +
+        `Vui lòng kiểm tra xem backend đã chạy chưa.`
+      );
+    }
+    // Re-throw other errors
+    throw error;
   }
-
-  return response.json();
 }
 
 /**
@@ -97,21 +125,24 @@ export function storeToken(token: string): void {
 }
 
 /**
- * Get token from localStorage
+ * Get token from localStorage (check both 'token' and 'accessToken')
  */
 export function getToken(): string | null {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('token');
+    // Check for 'token' first (used by api.ts), then 'accessToken' (used by login page)
+    return localStorage.getItem('token') || localStorage.getItem('accessToken');
   }
   return null;
 }
 
 /**
- * Remove token from localStorage
+ * Remove token from localStorage (remove both 'token' and 'accessToken')
  */
 export function removeToken(): void {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('expiredAt');
   }
 }
 
@@ -146,11 +177,49 @@ export async function apiCall<T>(
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      // Try to parse error response, but handle empty responses
+      let error: any = { message: 'Request failed' };
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const text = await response.text();
+          if (text) {
+            error = JSON.parse(text);
+          }
+        } catch (e) {
+          // If parsing fails, use default error
+        }
+      }
       throw new Error(error.message || error.error || `Request failed with status ${response.status}`);
     }
 
-    return response.json();
+    // Check if response has content
+    const contentType = response.headers.get('content-type');
+    const contentLength = response.headers.get('content-length');
+    
+    // Handle empty responses (204 No Content, or empty body)
+    if (response.status === 204 || contentLength === '0') {
+      return null as T;
+    }
+
+    // Check if response is JSON
+    if (contentType && contentType.includes('application/json')) {
+      const text = await response.text();
+      // Handle empty JSON response
+      if (!text || text.trim() === '' || text.trim() === 'null') {
+        return null as T;
+      }
+      try {
+        return JSON.parse(text) as T;
+      } catch (e) {
+        console.error('Failed to parse JSON:', text);
+        throw new Error('Invalid JSON response from server');
+      }
+    }
+
+    // If not JSON, return null or text
+    const text = await response.text();
+    return (text || null) as T;
   } catch (error: unknown) {
     // Handle network errors (backend not running, CORS, etc.)
     if (error instanceof TypeError && error.message === 'Failed to fetch') {

@@ -8,6 +8,8 @@ import com.mathbridge.be_project.common.UserStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,8 +31,12 @@ public class StudentController {
     @PostMapping("/create")
     public ResponseEntity<?> createStudent(@RequestBody StudentRequest request) {
         try {
-            User mockUser = getOrCreateDefaultUser();
-            Student student = studentService.createStudent(mockUser, request);
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(createErrorResponse("Bạn cần đăng nhập để lưu thông tin học sinh"));
+            }
+            Student student = studentService.createStudent(currentUser, request);
             return ResponseEntity.ok(student);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
@@ -44,8 +50,12 @@ public class StudentController {
     @PostMapping
     public ResponseEntity<?> createStudentRest(@RequestBody StudentRequest request) {
         try {
-            User mockUser = getOrCreateDefaultUser();
-            Student student = studentService.createStudent(mockUser, request);
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(createErrorResponse("Bạn cần đăng nhập để lưu thông tin học sinh"));
+            }
+            Student student = studentService.createStudent(currentUser, request);
             return ResponseEntity.ok(student);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
@@ -55,27 +65,45 @@ public class StudentController {
         }
     }
 
-    private User getOrCreateDefaultUser() {
-        // Tìm user với ID=1 hoặc email default@mathbridge.com
-        Optional<User> existingUser = userRepository.findById(1L);
-        if (existingUser.isPresent()) {
-            return existingUser.get();
+    // GET /api/students/me - Lấy thông tin học sinh của user hiện tại
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentStudent() {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(createErrorResponse("Bạn cần đăng nhập để xem thông tin học sinh"));
+            }
+            
+            Optional<Student> studentOpt = studentService.getStudentByUser(currentUser);
+            if (studentOpt.isPresent()) {
+                return ResponseEntity.ok(studentOpt.get());
+            } else {
+                // Trả về 204 No Content hoặc empty JSON object thay vì null
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Lỗi khi lấy thông tin học sinh: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Lấy user hiện tại từ SecurityContext (JWT token)
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
         }
         
-        // Tìm theo email nếu có
-        Optional<User> existingByEmail = userRepository.findByEmail("default@mathbridge.com");
-        if (existingByEmail.isPresent()) {
-            return existingByEmail.get();
+        // Lấy email từ authentication principal (được set bởi JwtAuthFilter)
+        String email = authentication.getName();
+        if (email == null || email.isEmpty()) {
+            return null;
         }
         
-        // Tạo default user nếu chưa có
-        User defaultUser = new User();
-        defaultUser.setFullName("Default User");
-        defaultUser.setEmail("default@mathbridge.com");
-        defaultUser.setPassword(passwordEncoder.encode("default123")); // Encoded password
-        defaultUser.setRole(UserRole.STUDENT);
-        defaultUser.setStatus(UserStatus.ACTIVE);
-        return userService.createUser(defaultUser);
+        return userService.getUserByEmail(email).orElse(null);
     }
 
     private Map<String, String> createErrorResponse(String message) {

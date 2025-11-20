@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState } from 'react'
-import { loginApi } from '@/api-client/auth-api'
+import { login, storeToken } from '@/lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -18,12 +18,36 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const data = await loginApi({ username, password })
-      localStorage.setItem('accessToken', data.accessToken)
-      localStorage.setItem('expiredAt', String(data.expiredAt))
+      console.log('Attempting login with:', { email: username, password: '***' })
+      
+      // Sử dụng API đúng từ @/lib/api (gọi backend thực sự)
+      const response = await login({ email: username, password })
+      
+      console.log('Login response:', response)
+      
+      // Lưu token vào localStorage
+      if (response.token) {
+        storeToken(response.token)
+        // Store in both formats for compatibility
+        localStorage.setItem('accessToken', response.token)
+        console.log('Token stored successfully')
+      } else {
+        throw new Error('Không nhận được token từ server')
+      }
+      
       router.push('/student')
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Đăng nhập thất bại'
+      console.error('Login error:', error)
+      let message = 'Đăng nhập thất bại'
+      
+      if (error instanceof Error) {
+        message = error.message
+        // Kiểm tra nếu là lỗi kết nối
+        if (error.message.includes('Failed to fetch') || error.message.includes('kết nối')) {
+          message = 'Không thể kết nối đến server. Vui lòng kiểm tra xem backend đã chạy chưa.'
+        }
+      }
+      
       setErr(message)
     } finally {
       setLoading(false)

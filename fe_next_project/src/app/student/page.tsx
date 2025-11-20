@@ -84,6 +84,7 @@ export default function StudentDashboard() {
     const [editMode, setEditMode] = useState(true);
     const [progress, setProgress] = useState(0);
     const [reminders] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
 
     const [classes] = useState<{ name: string }[]>([
         { name: "Đại số 10: Hàm số bậc nhất" },
@@ -160,6 +161,58 @@ export default function StudentDashboard() {
         syncPaymentInfo();
     }, [syncPaymentInfo]);
 
+    // Load student data when component mounts
+    useEffect(() => {
+        const loadStudentData = async () => {
+            try {
+                setLoading(true);
+                
+                // Debug: Check if token exists
+                if (typeof window !== 'undefined') {
+                    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+                    console.log('Token exists:', !!token);
+                }
+                
+                const result = await apiCall<Student | null>("/api/students/me", {
+                    method: "GET",
+                });
+                
+                if (result) {
+                    // Map backend data to frontend format
+                    // Backend uses 'grade' but frontend uses 'gradeLevel'
+                    const backendStudent = result as any;
+                    setStudent({
+                        fullName: backendStudent.fullName || "",
+                        dob: backendStudent.dob || "",
+                        gender: (backendStudent.gender as Student["gender"]) || "",
+                        district: backendStudent.district || "",
+                        email: backendStudent.email || "",
+                        phone: backendStudent.phone || "",
+                        gradeLevel: backendStudent.grade || backendStudent.gradeLevel || "",
+                    });
+                    setEditMode(false); // Disable edit mode if data exists
+                } else {
+                    // No student data found, keep edit mode enabled
+                    setEditMode(true);
+                }
+            } catch (err: unknown) {
+                console.error("Load student data failed:", err);
+                // If unauthorized, redirect to login
+                if (err instanceof Error && (err.message.includes("401") || err.message.includes("đăng nhập"))) {
+                    alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+                    window.location.href = "/login";
+                    return;
+                }
+                // Otherwise, allow user to create new student info
+                setEditMode(true);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadStudentData();
+    }, []);
+
     useEffect(() => {
         if (typeof window === "undefined") return undefined;
         const handleStorage = (event: StorageEvent) => {
@@ -212,6 +265,17 @@ export default function StudentDashboard() {
             return;
         }
 
+        // Debug: Check token before saving
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+            console.log('Token before save:', !!token);
+            if (!token) {
+                alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+                window.location.href = "/login";
+                return;
+            }
+        }
+
         const payload = {
             fullName: student.fullName,
             dob: normalizeDate(student.dob),
@@ -231,9 +295,34 @@ export default function StudentDashboard() {
             console.log("Student saved successfully:", result);
             setEditMode(false);
             alert("Đã lưu thông tin học sinh vào CSDL.");
+            
+            // Reload student data to get the latest from server
+            const reloaded = await apiCall<Student | null>("/api/students/me", {
+                method: "GET",
+            });
+            if (reloaded) {
+                const backendStudent = reloaded as any;
+                setStudent({
+                    fullName: backendStudent.fullName || "",
+                    dob: backendStudent.dob || "",
+                    gender: (backendStudent.gender as Student["gender"]) || "",
+                    district: backendStudent.district || "",
+                    email: backendStudent.email || "",
+                    phone: backendStudent.phone || "",
+                    gradeLevel: backendStudent.grade || backendStudent.gradeLevel || "",
+                });
+            }
         } catch (err: unknown) {
             console.error("Save student failed:", err);
             const errorMessage = err instanceof Error ? err.message : "Lưu thất bại. Vui lòng thử lại.";
+            
+            // If unauthorized, redirect to login
+            if (err instanceof Error && (err.message.includes("401") || err.message.includes("đăng nhập"))) {
+                alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+                window.location.href = "/login";
+                return;
+            }
+            
             alert(errorMessage);
         }
     };
@@ -273,6 +362,14 @@ export default function StudentDashboard() {
                     </div>
                     <Link
                         href="/login"
+                        onClick={() => {
+                            // Clear token when logging out
+                            if (typeof window !== 'undefined') {
+                                localStorage.removeItem('token');
+                                localStorage.removeItem('accessToken');
+                                localStorage.removeItem('expiredAt');
+                            }
+                        }}
                         className="text-sm font-semibold text-orange-300 hover:underline"
                     >
                         Đăng xuất
@@ -281,6 +378,13 @@ export default function StudentDashboard() {
             </header>
 
             <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">
+                {loading && (
+                    <div className="text-center py-8">
+                        <p className="text-orange-300">Đang tải thông tin học sinh...</p>
+                    </div>
+                )}
+                {!loading && (
+                <>
                 {/* Thông tin học sinh + Lịch theo tháng */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Thông tin học sinh */}
@@ -715,6 +819,8 @@ export default function StudentDashboard() {
                         )}
                     </div>
                 </section>
+                </>
+                )}
             </main>
         </div>
     );

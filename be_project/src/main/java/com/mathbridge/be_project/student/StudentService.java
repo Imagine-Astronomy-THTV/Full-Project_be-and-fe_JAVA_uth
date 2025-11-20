@@ -55,6 +55,10 @@ public class StudentService {
                 .orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
     }
 
+    public Optional<Student> getStudentByUser(User user) {
+        return studentRepository.findByUser(user);
+    }
+
     public void deleteStudent(Long id) {
         if (!studentRepository.existsById(id)) {
             throw new RuntimeException("Student not found with id: " + id);
