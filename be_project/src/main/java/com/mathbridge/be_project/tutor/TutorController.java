@@ -1,36 +1,105 @@
 package com.mathbridge.be_project.tutor;
 
 import com.mathbridge.be_project.common.ApprovalStatus;
+import com.mathbridge.be_project.user.User;
+import com.mathbridge.be_project.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/tutors")
 @Tag(name = "Tutor Management", description = "APIs for managing tutors")
+@RequiredArgsConstructor
 public class TutorController {
     
-    @Autowired
-    private TutorService tutorService;
+    private final TutorService tutorService;
+    private final UserService userService;
     
     @PostMapping
     @Operation(summary = "Create a new tutor", description = "Register a new tutor")
-    public ResponseEntity<Tutor> createTutor(@Valid @RequestBody Tutor tutor) {
+    public ResponseEntity<?> createTutor(@Valid @RequestBody TutorRequest request) {
         try {
-            Tutor createdTutor = tutorService.createTutor(tutor);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdTutor);
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(createErrorResponse("Bạn cần đăng nhập để lưu thông tin giảng viên"));
+            }
+            
+            Tutor tutor = tutorService.createOrUpdateTutor(currentUser, request);
+            return ResponseEntity.ok(tutor);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Lỗi khi lưu thông tin giảng viên: " + e.getMessage()));
         }
+    }
+
+    // GET /api/tutors/me - Lấy thông tin tutor của user hiện tại
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentTutor() {
+        try {
+            User currentUser = getCurrentUser();
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(createErrorResponse("Bạn cần đăng nhập để xem thông tin giảng viên"));
+            }
+            
+            Optional<Tutor> tutorOpt = tutorService.getTutorByUser(currentUser);
+            if (tutorOpt.isPresent()) {
+                Tutor tutor = tutorOpt.get();
+                // Ensure User is loaded before serialization
+                if (tutor.getUser() != null) {
+                    tutor.getUser().getEmail(); // Trigger lazy loading
+                }
+                return ResponseEntity.ok(tutor);
+            } else {
+                // Return empty JSON object instead of 204 to avoid parsing issues
+                return ResponseEntity.ok(new java.util.HashMap<>());
+            }
+        } catch (Exception e) {
+            e.printStackTrace(); // Log for debugging
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Lỗi khi lấy thông tin giảng viên: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Lấy user hiện tại từ SecurityContext (JWT token)
+     */
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        
+        String email = authentication.getName();
+        if (email == null || email.isEmpty()) {
+            return null;
+        }
+        
+        return userService.getUserByEmail(email).orElse(null);
+    }
+
+    private Map<String, String> createErrorResponse(String message) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", message);
+        error.put("message", message);
+        return error;
     }
     
     @GetMapping

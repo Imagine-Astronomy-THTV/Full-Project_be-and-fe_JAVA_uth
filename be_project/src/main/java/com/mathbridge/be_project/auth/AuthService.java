@@ -1,6 +1,8 @@
 package com.mathbridge.be_project.auth;
 
 import com.mathbridge.be_project.security.JwtUtils;
+import com.mathbridge.be_project.tutor.Tutor;
+import com.mathbridge.be_project.tutor.TutorRepository;
 import com.mathbridge.be_project.user.*;
 import com.mathbridge.be_project.common.UserStatus;
 import com.mathbridge.be_project.common.UserRole;
@@ -17,6 +19,7 @@ public class AuthService {
     private final UserService userService;
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
+    private final TutorRepository tutorRepository;
 
     public AuthResponse login(LoginRequest request) {
         try {
@@ -71,6 +74,17 @@ public class AuthService {
         user.setStatus(UserStatus.ACTIVE);
 
         User savedUser = userService.createUser(user);
+        
+        // Nếu là giảng viên (TUTOR), tự động tạo Tutor record với employeeId
+        if (savedUser.getRole() == UserRole.TUTOR) {
+            Tutor tutor = new Tutor();
+            tutor.setUser(savedUser);
+            // Generate employeeId: GV + 6 random digits
+            String employeeId = "GV" + String.format("%06d", (int)(Math.random() * 900000) + 100000);
+            tutor.setEmployeeId(employeeId);
+            tutorRepository.save(tutor);
+        }
+        
         String token = jwtUtils.generateToken(savedUser.getEmail(), savedUser.getRole().name());
         
         // Tạo UserDTO với thông tin user

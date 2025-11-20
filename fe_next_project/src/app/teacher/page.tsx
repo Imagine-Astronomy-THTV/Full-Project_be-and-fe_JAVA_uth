@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Feedback, getAllFeedbacks } from "@/lib/api";
+import { Feedback, getAllFeedbacks, apiCall } from "@/lib/api";
 
 const PAYMENT_QR_KEY = "mathbridgePaymentQr";
 const PAYMENT_QR_UPDATED_AT_KEY = "mathbridgePaymentQrUpdatedAt";
@@ -47,6 +47,10 @@ export default function TeacherProfile() {
   const [filterRating, setFilterRating] = useState("ALL");
   const [searchKeyword, setSearchKeyword] = useState("");
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState<any>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -90,22 +94,23 @@ export default function TeacherProfile() {
     }
   }, [router]);
 
-  const loadPaymentConfig = useCallback(async () => {
-    setPaymentLoading(true);
-    try {
-      const data = await fetchPaymentConfig();
-      setPaymentConfig(data);
-      setQrMessage(null);
-    } catch (err: unknown) {
-      setQrMessage(err instanceof Error ? err.message : "Không thể tải thông tin thanh toán.");
-    } finally {
-      setPaymentLoading(false);
-    }
-  }, []);
+  // Payment config loading - commented out as fetchPaymentConfig is not defined
+  // const loadPaymentConfig = useCallback(async () => {
+  //   setPaymentLoading(true);
+  //   try {
+  //     const data = await fetchPaymentConfig();
+  //     setPaymentConfig(data);
+  //     setQrMessage(null);
+  //   } catch (err: unknown) {
+  //     setQrMessage(err instanceof Error ? err.message : "Không thể tải thông tin thanh toán.");
+  //   } finally {
+  //     setPaymentLoading(false);
+  //   }
+  // }, []);
 
-  useEffect(() => {
-    loadPaymentConfig();
-  }, [loadPaymentConfig]);
+  // useEffect(() => {
+  //   loadPaymentConfig();
+  // }, [loadPaymentConfig]);
 
   const fetchFeedbacks = useCallback(async () => {
     setFeedbackLoading(true);
@@ -125,6 +130,114 @@ export default function TeacherProfile() {
   useEffect(() => {
     fetchFeedbacks();
   }, [fetchFeedbacks]);
+
+  // Load tutor data when component mounts
+  useEffect(() => {
+    const loadTutorData = async () => {
+      if (!teacherEmail) return;
+      
+      try {
+        setLoading(true);
+        const result = await apiCall<any>("/api/tutors/me", {
+          method: "GET",
+        });
+        
+        // Check if result is valid and has data
+        if (result && (result.employeeId || result.id || result.user)) {
+          // Format dob from LocalDate to string (YYYY-MM-DD for input type="date")
+          let dobString = "";
+          if (result.dob) {
+            // If dob is a string, use it directly; if it's a date object, format it
+            if (typeof result.dob === 'string') {
+              dobString = result.dob;
+            } else if (result.dob.year && result.dob.month && result.dob.day) {
+              // Handle LocalDate object from backend
+              const year = result.dob.year;
+              const month = String(result.dob.monthValue || result.dob.month).padStart(2, '0');
+              const day = String(result.dob.dayOfMonth || result.dob.day).padStart(2, '0');
+              dobString = `${year}-${month}-${day}`;
+            }
+          }
+          
+          // Debug: Log the result to see what we're getting
+          console.log("Loaded tutor data from backend:", {
+            qualification: result.qualification,
+            title: result.title,
+            degree: result.degree,
+            subjects: result.subjects,
+            gender: result.gender,
+            office: result.office,
+            dob: result.dob
+          });
+          
+          // Normalize and match values with options
+          const normalizedDepartment = normalizeAndMatch(result.qualification, departments);
+          const normalizedTitle = normalizeAndMatch(result.title, titles);
+          const normalizedDegree = normalizeAndMatch(result.degree, degrees);
+          const normalizedTeachGrades = normalizeAndMatch(result.subjects, teachGradeOptions);
+          
+          // Map backend data to frontend format
+          setTeacher({
+            employeeId: result.employeeId || "",
+            name: result.user?.fullName || "",
+            dob: dobString,
+            gender: result.gender || "",
+            department: normalizedDepartment,
+            title: normalizedTitle,
+            degree: normalizedDegree,
+            teachGrades: normalizedTeachGrades,
+            email: result.user?.email || teacherEmail,
+            phone: result.user?.phone || "",
+            office: result.office || "",
+          });
+          
+          // Debug: Log what we're setting
+          console.log("Setting teacher state:", {
+            originalDepartment: result.qualification,
+            normalizedDepartment,
+            originalTitle: result.title,
+            normalizedTitle,
+            originalDegree: result.degree,
+            normalizedDegree,
+            originalTeachGrades: result.subjects,
+            normalizedTeachGrades,
+          });
+          
+          // Load avatar
+          if (result.avatar) {
+            setPhoto(result.avatar);
+          }
+          
+          setEditMode(false);
+        } else {
+          // No tutor data found (empty object or null), keep edit mode enabled
+          setEditMode(true);
+        }
+      } catch (err: unknown) {
+        console.error("Load tutor data failed:", err);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        
+        // If unauthorized, redirect to login
+        if (errorMessage.includes("401") || errorMessage.includes("đăng nhập") || errorMessage.includes("Unauthorized")) {
+          router.push("/login-teacher");
+          return;
+        }
+        
+        // If 404 or 204, it means no tutor data exists yet - allow user to create
+        if (errorMessage.includes("404") || errorMessage.includes("204") || errorMessage.includes("No Content")) {
+          setEditMode(true);
+        } else {
+          // Other errors - show message but allow editing
+          console.warn("Could not load tutor data, but allowing edit mode:", errorMessage);
+          setEditMode(true);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTutorData();
+  }, [teacherEmail, router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -296,9 +409,118 @@ export default function TeacherProfile() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Thông tin giảng viên đã được lưu thành công!");
+    
+    if (!teacher.name.trim()) {
+      alert("Vui lòng nhập họ và tên!");
+      return;
+    }
+
+    try {
+      // Convert dob string to LocalDate format (YYYY-MM-DD)
+      let dobValue = null;
+      if (teacher.dob && teacher.dob.trim()) {
+        // Ensure format is YYYY-MM-DD
+        const dateParts = teacher.dob.split('/');
+        if (dateParts.length === 3) {
+          // Convert from DD/MM/YYYY to YYYY-MM-DD
+          dobValue = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        } else {
+          // Already in YYYY-MM-DD format
+          dobValue = teacher.dob;
+        }
+      }
+      
+      // Filter out empty strings and placeholder values
+      const filterValue = (value: string | null | undefined) => {
+        if (!value || value.trim() === "" || value.includes("-- Chọn")) {
+          return null;
+        }
+        return value;
+      };
+      
+      const payload = {
+        fullName: teacher.name,
+        dob: dobValue,
+        gender: filterValue(teacher.gender),
+        department: filterValue(teacher.department), // This will be mapped to qualification in backend
+        title: filterValue(teacher.title),
+        degree: filterValue(teacher.degree),
+        teachGrades: filterValue(teacher.teachGrades), // This will be mapped to subjects in backend
+        email: teacher.email || teacherEmail,
+        phone: filterValue(teacher.phone),
+        office: filterValue(teacher.office),
+        avatar: photo || null,
+        qualification: filterValue(teacher.department), // Keep for backward compatibility
+        subjects: filterValue(teacher.teachGrades), // Keep for backward compatibility
+        experience: 0,
+      };
+      
+      console.log("Saving tutor payload:", payload);
+
+      const result = await apiCall<any>("/api/tutors", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      
+      console.log("Tutor saved successfully:", result);
+      setEditMode(false);
+      alert("Đã lưu thông tin giảng viên vào CSDL.");
+      
+      // Reload tutor data to get the latest from server
+      try {
+        const reloaded = await apiCall<any>("/api/tutors/me", {
+          method: "GET",
+        });
+        if (reloaded) {
+          // Format dob from LocalDate to string (YYYY-MM-DD for input type="date")
+          let dobString = "";
+          if (reloaded.dob) {
+            // If dob is a string, use it directly; if it's a date object, format it
+            if (typeof reloaded.dob === 'string') {
+              dobString = reloaded.dob;
+            } else if (reloaded.dob.year && reloaded.dob.month && reloaded.dob.day) {
+              // Handle LocalDate object from backend
+              const year = reloaded.dob.year;
+              const month = String(reloaded.dob.monthValue || reloaded.dob.month).padStart(2, '0');
+              const day = String(reloaded.dob.dayOfMonth || reloaded.dob.day).padStart(2, '0');
+              dobString = `${year}-${month}-${day}`;
+            }
+          }
+          
+          // Normalize and match values with options
+          const normalizedDepartment = normalizeAndMatch(reloaded.qualification, departments);
+          const normalizedTitle = normalizeAndMatch(reloaded.title, titles);
+          const normalizedDegree = normalizeAndMatch(reloaded.degree, degrees);
+          const normalizedTeachGrades = normalizeAndMatch(reloaded.subjects, teachGradeOptions);
+          
+          setTeacher({
+            employeeId: reloaded.employeeId || "",
+            name: reloaded.user?.fullName || "",
+            dob: dobString,
+            gender: reloaded.gender || "",
+            department: normalizedDepartment,
+            title: normalizedTitle,
+            degree: normalizedDegree,
+            teachGrades: normalizedTeachGrades,
+            email: reloaded.user?.email || teacherEmail,
+            phone: reloaded.user?.phone || "",
+            office: reloaded.office || "",
+          });
+          if (reloaded.avatar) {
+            setPhoto(reloaded.avatar);
+          }
+        }
+      } catch (reloadErr) {
+        console.warn("Could not reload tutor data after save:", reloadErr);
+        // Don't show error to user as save was successful
+      }
+    } catch (err: unknown) {
+      console.error("Save tutor failed:", err);
+      const errorMessage = err instanceof Error ? err.message : "Lưu thất bại. Vui lòng thử lại.";
+      alert(errorMessage);
+    }
   };
 
   const departments = [
@@ -320,6 +542,58 @@ export default function TeacherProfile() {
   ];
 
   const degrees = ["Cử nhân", "Kỹ sư", "Thạc sĩ", "Tiến sĩ"];
+
+  // Helper function to normalize and match values with options
+  const normalizeAndMatch = (value: string | null | undefined, options: string[]): string => {
+    if (!value || value.trim() === "") return "";
+    
+    // Try exact match first
+    if (options.includes(value)) return value;
+    
+    // Fix common encoding issues
+    let normalized = value
+      .replace(/Công ngh\? thôn/g, 'Công nghệ thông')
+      .replace(/L\?p/g, 'Lớp')
+      .replace(/Qu\?n/g, 'Quận');
+    
+    // Try case-insensitive match
+    const caseInsensitiveMatch = options.find(opt => 
+      opt.toLowerCase() === normalized.toLowerCase()
+    );
+    if (caseInsensitiveMatch) return caseInsensitiveMatch;
+    
+    // Try partial match (remove special characters and compare)
+    const normalizeForMatch = (s: string) => 
+      s.replace(/[^\w\s]/g, '').toLowerCase().trim();
+    
+    const partialMatch = options.find(opt => {
+      const optNormalized = normalizeForMatch(opt);
+      const valNormalized = normalizeForMatch(normalized);
+      return optNormalized === valNormalized || 
+             optNormalized.includes(valNormalized) ||
+             valNormalized.includes(optNormalized);
+    });
+    if (partialMatch) return partialMatch;
+    
+    // Try to find by number or key words
+    const keywordMatch = options.find(opt => {
+      // Extract numbers from both
+      const optNums = opt.match(/\d+/g) || [];
+      const valNums = normalized.match(/\d+/g) || [];
+      if (optNums.length > 0 && valNums.length > 0) {
+        return optNums.some(n => valNums.includes(n));
+      }
+      // Check if key words match
+      const optWords = normalizeForMatch(opt).split(/\s+/);
+      const valWords = normalizeForMatch(normalized).split(/\s+/);
+      return optWords.some(w => valWords.includes(w)) || 
+             valWords.some(w => optWords.includes(w));
+    });
+    if (keywordMatch) return keywordMatch;
+    
+    // If no match found, return the original value (might display as-is)
+    return normalized;
+  };
 
   // Các khối / lớp giảng dạy cho môn Toán
   const teachGradeOptions = [
@@ -403,11 +677,12 @@ export default function TeacherProfile() {
                 Chọn ảnh thẻ tại đây
               </span>
 
-              <label className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-orange-500 hover:bg-orange-400 text-sm font-semibold text-black cursor-pointer shadow-lg shadow-orange-900/40 transition">
+              <label className={`inline-flex items-center justify-center px-4 py-2 rounded-full bg-orange-500 hover:bg-orange-400 text-sm font-semibold text-black shadow-lg shadow-orange-900/40 transition ${editMode ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handlePhotoUpload}
+                  disabled={!editMode}
                   className="hidden"
                 />
                 <span>Tải ảnh lên</span>
@@ -436,9 +711,10 @@ export default function TeacherProfile() {
 
                 <button
                   type="button"
+                  onClick={() => setEditMode(!editMode)}
                   className="px-4 py-1.5 rounded-full text-xs font-semibold bg-[#3c1b0b] text-orange-100 border border-orange-700 hover:bg-[#4a210f] transition"
                 >
-                  Xong
+                  {editMode ? "Xong" : "Chỉnh sửa"}
                 </button>
               </div>
 
@@ -454,9 +730,9 @@ export default function TeacherProfile() {
                       name="employeeId"
                       value={teacher.employeeId}
                       onChange={handleChange}
-                      placeholder="Nhập mã giảng viên"
-                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
+                      placeholder="Mã giảng viên (tự động tạo)"
+                      disabled
+                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 opacity-60 cursor-not-allowed"
                     />
                   </div>
 
@@ -470,7 +746,8 @@ export default function TeacherProfile() {
                       value={teacher.name}
                       onChange={handleChange}
                       placeholder="Nhập họ và tên"
-                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      disabled={!editMode}
+                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-60 disabled:cursor-not-allowed"
                       required
                     />
                   </div>
@@ -487,7 +764,8 @@ export default function TeacherProfile() {
                       name="dob"
                       value={teacher.dob}
                       onChange={handleChange}
-                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      disabled={!editMode}
+                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                     <p className="mt-1 text-[11px] text-orange-200/60">
                       Định dạng: dd/mm/yyyy (tùy theo trình duyệt).
@@ -503,7 +781,8 @@ export default function TeacherProfile() {
                         name="gender"
                         value={teacher.gender}
                         onChange={handleChange}
-                        className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                        disabled={!editMode}
+                        className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <option value="">-- Chọn giới tính --</option>
                         {genders.map((g) => (
@@ -530,7 +809,8 @@ export default function TeacherProfile() {
                         name="department"
                         value={teacher.department}
                         onChange={handleChange}
-                        className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                        disabled={!editMode}
+                        className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                         required
                       >
                         <option value="">-- Chọn khoa/bộ môn --</option>
@@ -556,7 +836,8 @@ export default function TeacherProfile() {
                       value={teacher.office}
                       onChange={handleChange}
                       placeholder="Ví dụ: Phòng 402, nhà C"
-                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      disabled={!editMode}
+                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -572,7 +853,8 @@ export default function TeacherProfile() {
                         name="title"
                         value={teacher.title}
                         onChange={handleChange}
-                        className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                        disabled={!editMode}
+                        className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <option value="">-- Chọn chức danh --</option>
                         {titles.map((t) => (
@@ -596,7 +878,8 @@ export default function TeacherProfile() {
                         name="degree"
                         value={teacher.degree}
                         onChange={handleChange}
-                        className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                        disabled={!editMode}
+                        className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <option value="">-- Chọn học vị --</option>
                         {degrees.map((d) => (
@@ -622,7 +905,8 @@ export default function TeacherProfile() {
                       name="teachGrades"
                       value={teacher.teachGrades}
                       onChange={handleChange}
-                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                      disabled={!editMode}
+                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 pl-3 pr-9 text-sm text-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                       required
                     >
                       <option value="">
@@ -659,7 +943,8 @@ export default function TeacherProfile() {
                       value={teacher.email}
                       onChange={handleChange}
                       placeholder="Nhập email liên hệ"
-                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      disabled={!editMode}
+                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -673,14 +958,16 @@ export default function TeacherProfile() {
                       value={teacher.phone}
                       onChange={handleChange}
                       placeholder="Nhập số điện thoại"
-                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      disabled={!editMode}
+                      className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  className="mt-4 w-full h-11 rounded-lg bg-orange-500 hover:bg-orange-400 text-black font-semibold shadow-[0_0_20px_rgba(248,148,80,0.7)] transition"
+                  disabled={!editMode}
+                  className="mt-4 w-full h-11 rounded-lg bg-orange-500 hover:bg-orange-400 text-black font-semibold shadow-[0_0_20px_rgba(248,148,80,0.7)] transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Lưu thông tin
                 </button>

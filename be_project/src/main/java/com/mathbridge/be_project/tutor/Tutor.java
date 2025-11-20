@@ -1,5 +1,6 @@
 package com.mathbridge.be_project.tutor;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.mathbridge.be_project.common.ApprovalStatus;
 import com.mathbridge.be_project.user.User;
 import jakarta.persistence.*;
@@ -7,6 +8,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -19,7 +21,29 @@ public class Tutor {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @NotNull(message = "User is required")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password"})
     private User user;
+
+    @Column(name = "employee_id", length = 50, unique = true)
+    private String employeeId;
+
+    @Column(name = "avatar", columnDefinition = "TEXT")
+    private String avatar;
+
+    @Column(name = "dob")
+    private LocalDate dob;
+
+    @Column(name = "gender", length = 20)
+    private String gender;
+
+    @Column(name = "title", length = 100)
+    private String title;
+
+    @Column(name = "degree", length = 100)
+    private String degree;
+
+    @Column(name = "office", length = 200)
+    private String office;
 
     @Column(name = "qualification", length = 500)
     private String qualification;
@@ -54,11 +78,22 @@ public class Tutor {
     @JoinColumn(name = "approved_by")
     private User approvedBy;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", insertable = false, updatable = false)
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    public void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = createdAt;
+    }
+
+    @PreUpdate
+    public void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 
     // Constructors
     public Tutor() {}
@@ -86,6 +121,62 @@ public class Tutor {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public String getEmployeeId() {
+        return employeeId;
+    }
+
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+
+    public LocalDate getDob() {
+        return dob;
+    }
+
+    public void setDob(LocalDate dob) {
+        this.dob = dob;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDegree() {
+        return degree;
+    }
+
+    public void setDegree(String degree) {
+        this.degree = degree;
+    }
+
+    public String getOffice() {
+        return office;
+    }
+
+    public void setOffice(String office) {
+        this.office = office;
     }
 
     public String getQualification() {

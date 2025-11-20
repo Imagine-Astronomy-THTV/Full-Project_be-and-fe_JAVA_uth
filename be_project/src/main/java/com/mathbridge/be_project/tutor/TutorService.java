@@ -26,6 +26,103 @@ public class TutorService {
     public Tutor createTutor(Tutor tutor) {
         return tutorRepository.save(tutor);
     }
+
+    // Create or update tutor from request
+    public Tutor createOrUpdateTutor(User user, TutorRequest request) {
+        Optional<Tutor> existingTutor = tutorRepository.findByUserId(user.getId());
+        Tutor tutor;
+        
+        if (existingTutor.isPresent()) {
+            tutor = existingTutor.get();
+        } else {
+            tutor = new Tutor();
+            tutor.setUser(user);
+            // Generate employeeId if not provided
+            if (request.getEmployeeId() == null || request.getEmployeeId().isEmpty()) {
+                tutor.setEmployeeId(generateEmployeeId());
+            } else {
+                tutor.setEmployeeId(request.getEmployeeId());
+            }
+        }
+        
+        // Update fields from request - always update if provided
+        if (request.getAvatar() != null) {
+            tutor.setAvatar(request.getAvatar());
+        }
+        if (request.getDob() != null) {
+            tutor.setDob(request.getDob());
+        }
+        // Update gender - allow null to clear the field
+        if (request.getGender() != null) {
+            tutor.setGender(request.getGender().isEmpty() ? null : request.getGender());
+        }
+        // Update title - allow null to clear the field
+        if (request.getTitle() != null) {
+            tutor.setTitle(request.getTitle().isEmpty() ? null : request.getTitle());
+        }
+        // Update degree - allow null to clear the field
+        if (request.getDegree() != null) {
+            tutor.setDegree(request.getDegree().isEmpty() ? null : request.getDegree());
+        }
+        // Update office - allow null to clear the field
+        if (request.getOffice() != null) {
+            tutor.setOffice(request.getOffice().isEmpty() ? null : request.getOffice());
+        }
+        // Map department to qualification (they are the same field)
+        // Priority: department > qualification
+        if (request.getDepartment() != null) {
+            tutor.setQualification(request.getDepartment().isEmpty() ? null : request.getDepartment());
+        } else if (request.getQualification() != null) {
+            tutor.setQualification(request.getQualification().isEmpty() ? null : request.getQualification());
+        }
+        if (request.getExperience() != null) {
+            tutor.setExperience(request.getExperience());
+        }
+        // Map teachGrades to subjects - check both fields
+        // Priority: subjects > teachGrades
+        if (request.getSubjects() != null) {
+            tutor.setSubjects(request.getSubjects().isEmpty() ? null : request.getSubjects());
+        } else if (request.getTeachGrades() != null) {
+            tutor.setSubjects(request.getTeachGrades().isEmpty() ? null : request.getTeachGrades());
+        }
+        
+        // Update user info if provided
+        boolean userUpdated = false;
+        if (request.getFullName() != null && !request.getFullName().isEmpty()) {
+            user.setFullName(request.getFullName());
+            userUpdated = true;
+        }
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+            userUpdated = true;
+        }
+        if (userUpdated) {
+            userService.updateUser(user);
+        }
+        
+        return tutorRepository.save(tutor);
+    }
+
+    // Generate unique employee ID
+    private String generateEmployeeId() {
+        // Format: GV + random 6 digits
+        String prefix = "GV";
+        int randomNum = (int) (Math.random() * 900000) + 100000; // 100000-999999
+        return prefix + randomNum;
+    }
+
+    // Get tutor by user
+    @Transactional(readOnly = true)
+    public Optional<Tutor> getTutorByUser(User user) {
+        Optional<Tutor> tutorOpt = tutorRepository.findByUserId(user.getId());
+        // Force load user to avoid lazy loading issues
+        if (tutorOpt.isPresent()) {
+            Tutor tutor = tutorOpt.get();
+            // Access user to trigger lazy loading
+            tutor.getUser().getEmail();
+        }
+        return tutorOpt;
+    }
     
     // Get tutor by ID
     @Transactional(readOnly = true)
