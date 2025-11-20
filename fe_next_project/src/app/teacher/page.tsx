@@ -167,7 +167,10 @@ export default function TeacherProfile() {
             subjects: result.subjects,
             gender: result.gender,
             office: result.office,
-            dob: result.dob
+            dob: result.dob,
+            fullName: result.fullName,
+            phone: result.phone,
+            user: result.user
           });
           
           // Normalize and match values with options
@@ -176,18 +179,31 @@ export default function TeacherProfile() {
           const normalizedDegree = normalizeAndMatch(result.degree, degrees);
           const normalizedTeachGrades = normalizeAndMatch(result.subjects, teachGradeOptions);
           
+          // Try multiple ways to get fullName and phone
+          const fullName = result.fullName || result.user?.fullName || "";
+          const phone = result.phone || result.user?.phone || "";
+          
+          console.log("Extracted values:", {
+            fullName: fullName,
+            phone: phone,
+            resultFullName: result.fullName,
+            resultPhone: result.phone,
+            userFullName: result.user?.fullName,
+            userPhone: result.user?.phone
+          });
+          
           // Map backend data to frontend format
           setTeacher({
             employeeId: result.employeeId || "",
-            name: result.user?.fullName || "",
+            name: fullName,
             dob: dobString,
             gender: result.gender || "",
             department: normalizedDepartment,
             title: normalizedTitle,
             degree: normalizedDegree,
             teachGrades: normalizedTeachGrades,
-            email: result.user?.email || teacherEmail,
-            phone: result.user?.phone || "",
+            email: result.email || result.user?.email || teacherEmail,
+            phone: phone,
             office: result.office || "",
           });
           
@@ -441,7 +457,7 @@ export default function TeacherProfile() {
       };
       
       const payload = {
-        fullName: teacher.name,
+        fullName: teacher.name.trim(), // Always send fullName if provided
         dob: dobValue,
         gender: filterValue(teacher.gender),
         department: filterValue(teacher.department), // This will be mapped to qualification in backend
@@ -449,13 +465,17 @@ export default function TeacherProfile() {
         degree: filterValue(teacher.degree),
         teachGrades: filterValue(teacher.teachGrades), // This will be mapped to subjects in backend
         email: teacher.email || teacherEmail,
-        phone: filterValue(teacher.phone),
+        phone: teacher.phone && teacher.phone.trim() ? teacher.phone.trim() : null, // Send phone even if empty, but as null
         office: filterValue(teacher.office),
         avatar: photo || null,
         qualification: filterValue(teacher.department), // Keep for backward compatibility
         subjects: filterValue(teacher.teachGrades), // Keep for backward compatibility
         experience: 0,
       };
+      
+      console.log("Payload being sent:", payload);
+      console.log("FullName:", payload.fullName);
+      console.log("Phone:", payload.phone);
       
       console.log("Saving tutor payload:", payload);
 
@@ -473,6 +493,12 @@ export default function TeacherProfile() {
         const reloaded = await apiCall<any>("/api/tutors/me", {
           method: "GET",
         });
+        
+        console.log("Reloaded tutor data:", reloaded);
+        console.log("User data:", reloaded?.user);
+        console.log("FullName from reloaded:", reloaded?.user?.fullName);
+        console.log("FullName from tutor.getFullName():", reloaded?.fullName);
+        
         if (reloaded) {
           // Format dob from LocalDate to string (YYYY-MM-DD for input type="date")
           let dobString = "";
@@ -495,17 +521,33 @@ export default function TeacherProfile() {
           const normalizedDegree = normalizeAndMatch(reloaded.degree, degrees);
           const normalizedTeachGrades = normalizeAndMatch(reloaded.subjects, teachGradeOptions);
           
+          // Try multiple ways to get fullName and phone
+          const fullName = reloaded.fullName || reloaded.user?.fullName || reloaded.user?.full_name || "";
+          const phone = reloaded.phone || reloaded.user?.phone || "";
+          
+          console.log("Reloaded values after save:", {
+            fullName: fullName,
+            phone: phone,
+            reloadedFullName: reloaded.fullName,
+            reloadedPhone: reloaded.phone,
+            userFullName: reloaded.user?.fullName,
+            userPhone: reloaded.user?.phone
+          });
+          
+          console.log("Setting teacher name to:", fullName);
+          console.log("Setting teacher phone to:", phone);
+          
           setTeacher({
             employeeId: reloaded.employeeId || "",
-            name: reloaded.user?.fullName || "",
+            name: fullName,
             dob: dobString,
             gender: reloaded.gender || "",
             department: normalizedDepartment,
             title: normalizedTitle,
             degree: normalizedDegree,
             teachGrades: normalizedTeachGrades,
-            email: reloaded.user?.email || teacherEmail,
-            phone: reloaded.user?.phone || "",
+            email: reloaded.email || reloaded.user?.email || teacherEmail,
+            phone: phone,
             office: reloaded.office || "",
           });
           if (reloaded.avatar) {
@@ -709,13 +751,15 @@ export default function TeacherProfile() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setEditMode(!editMode)}
-                  className="px-4 py-1.5 rounded-full text-xs font-semibold bg-[#3c1b0b] text-orange-100 border border-orange-700 hover:bg-[#4a210f] transition"
-                >
-                  {editMode ? "Xong" : "Chỉnh sửa"}
-                </button>
+                {!editMode && (
+                  <button
+                    type="button"
+                    onClick={() => setEditMode(true)}
+                    className="px-4 py-1.5 rounded-full text-xs font-semibold bg-[#3c1b0b] text-orange-100 border border-orange-700 hover:bg-[#4a210f] transition"
+                  >
+                    Chỉnh sửa
+                  </button>
+                )}
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -748,6 +792,7 @@ export default function TeacherProfile() {
                       placeholder="Nhập họ và tên"
                       disabled={!editMode}
                       className="w-full h-11 rounded-lg bg-[#1a0703] border border-orange-700/70 px-3 text-sm text-orange-50 placeholder:text-orange-200/50 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{ color: '#fef3c7' }}
                       required
                     />
                   </div>
@@ -977,17 +1022,10 @@ export default function TeacherProfile() {
             {/* Footer nút điều hướng giống style dashboard */}
             <div className="mt-6 flex flex-wrap gap-4">
               <Link
-                href="/login"
+                href="/teacher/dashboard"
                 className="flex-1 min-w-[140px] text-center bg-[#2a1207] border border-orange-700/70 rounded-2xl py-3 text-sm font-semibold text-orange-100 hover:bg-[#38180b] transition shadow-md"
               >
                 Quay lại
-              </Link>
-
-              <Link
-                href="/teacher/dashboard"
-                className="flex-1 min-w-[140px] text-center border border-orange-700/70 rounded-2xl py-3 text-sm font-semibold text-orange-100 hover:bg-[#38180b] transition shadow-md"
-              >
-                Trung tâm giảng dạy
               </Link>
 
               <Link
@@ -1137,13 +1175,6 @@ export default function TeacherProfile() {
               >
                 {feedbackLoading ? "Đang đồng bộ..." : "Tải lại"}
               </button>
-
-              <Link
-                href="/feedback"
-                className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-black shadow-[0_0_18px_rgba(248,148,80,0.7)] transition hover:bg-orange-400"
-              >
-                Mở form Feedback
-              </Link>
             </div>
           </div>
 

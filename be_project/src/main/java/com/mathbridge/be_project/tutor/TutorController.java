@@ -62,9 +62,18 @@ public class TutorController {
             Optional<Tutor> tutorOpt = tutorService.getTutorByUser(currentUser);
             if (tutorOpt.isPresent()) {
                 Tutor tutor = tutorOpt.get();
-                // Ensure User is loaded before serialization
+                // Ensure User is loaded before serialization - reload from database to get latest data
                 if (tutor.getUser() != null) {
-                    tutor.getUser().getEmail(); // Trigger lazy loading
+                    // Reload user from database to get latest fullName and phone
+                    User reloadedUser = userService.getUserById(tutor.getUser().getId()).orElse(null);
+                    if (reloadedUser != null) {
+                        // Update tutor's user reference to the reloaded one
+                        tutor.setUser(reloadedUser);
+                    }
+                    // Trigger lazy loading for all fields
+                    tutor.getUser().getEmail();
+                    tutor.getUser().getFullName();
+                    tutor.getUser().getPhone();
                 }
                 return ResponseEntity.ok(tutor);
             } else {

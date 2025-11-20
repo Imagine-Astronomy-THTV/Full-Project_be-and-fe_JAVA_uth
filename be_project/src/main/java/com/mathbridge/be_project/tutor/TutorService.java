@@ -86,18 +86,28 @@ public class TutorService {
             tutor.setSubjects(request.getTeachGrades().isEmpty() ? null : request.getTeachGrades());
         }
         
-        // Update user info if provided
+        // Update user info if provided - reload user from database first to ensure we have the latest version
         boolean userUpdated = false;
-        if (request.getFullName() != null && !request.getFullName().isEmpty()) {
-            user.setFullName(request.getFullName());
+        User userToUpdate = userService.getUserById(user.getId()).orElse(user);
+        
+        // Always update fullName if provided
+        if (request.getFullName() != null && !request.getFullName().trim().isEmpty()) {
+            userToUpdate.setFullName(request.getFullName().trim());
             userUpdated = true;
+            System.out.println("Updating user fullName to: " + userToUpdate.getFullName());
         }
+        // Update phone if provided (can be null to clear the field)
+        // Check if phone field is present in request (not null means it was sent)
         if (request.getPhone() != null) {
-            user.setPhone(request.getPhone());
+            userToUpdate.setPhone(request.getPhone().trim().isEmpty() ? null : request.getPhone().trim());
             userUpdated = true;
+            System.out.println("Updating user phone to: " + userToUpdate.getPhone());
         }
         if (userUpdated) {
-            userService.updateUser(user);
+            User savedUser = userService.updateUser(userToUpdate);
+            System.out.println("User updated successfully. FullName: " + savedUser.getFullName() + ", Phone: " + savedUser.getPhone());
+            // Update tutor's user reference to the saved user
+            tutor.setUser(savedUser);
         }
         
         return tutorRepository.save(tutor);

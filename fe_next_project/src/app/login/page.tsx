@@ -26,18 +26,41 @@ export default function LoginPage() {
       console.log('Login response:', response)
       
       // Kiểm tra role - chỉ cho phép học sinh (STUDENT)
-      const role = (response.role || response.user?.role)?.toUpperCase()
+      // Đảm bảo role là string trước khi so sánh
+      let role: string | undefined = undefined;
+      
+      if (response.role && typeof response.role === 'string') {
+        role = response.role.toUpperCase();
+      } else if (response.user?.role && typeof response.user.role === 'string') {
+        role = response.user.role.toUpperCase();
+      }
       
       console.log('Login role check:', { 
         role: role, 
         responseRole: response.role, 
         userRole: response.user?.role,
+        roleType: typeof role,
         fullResponse: response 
       })
 
       // Chỉ cho phép STUDENT đăng nhập vào trang học sinh
       if (!role || role !== "STUDENT") {
-        console.error('Role check failed:', { role, expected: 'STUDENT' })
+        console.error('Role check failed:', { 
+          role: role, 
+          roleType: typeof role,
+          roleValue: role,
+          expected: 'STUDENT',
+          responseRole: response.role,
+          userRole: response.user?.role
+        })
+        
+        // Nếu là tài khoản giảng viên, tự động redirect đến trang đăng nhập giảng viên
+        if (role === "TUTOR" || role === "TEACHER") {
+          alert("Tài khoản này là tài khoản giảng viên. Đang chuyển đến trang đăng nhập giảng viên...");
+          router.push("/login-teacher");
+          return;
+        }
+        
         throw new Error("Tài khoản này không có quyền học sinh. Vui lòng đăng nhập bằng tài khoản học sinh hoặc sử dụng trang đăng nhập giảng viên.")
       }
       

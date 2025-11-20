@@ -132,6 +132,10 @@ public class Tutor {
         return user != null ? user.getEmail() : null;
     }
 
+    public String getPhone() {
+        return user != null ? user.getPhone() : null;
+    }
+
     public String getEmployeeId() {
         return employeeId;
     }

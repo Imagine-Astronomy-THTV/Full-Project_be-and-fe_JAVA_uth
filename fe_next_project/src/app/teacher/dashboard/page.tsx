@@ -243,18 +243,10 @@ export default function TeacherDashboardPage() {
         </section>
 
         <section id="curriculum" className="rounded-3xl border border-orange-900/60 bg-[#1c0703]/80 p-6 shadow-[0_0_50px_rgba(0,0,0,0.55)]">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-orange-200/70">Curriculum stack</p>
-              <h2 className="text-2xl font-extrabold text-orange-200">Giáo trình giảng dạy</h2>
-              <p className="text-sm text-orange-100/70">Tùy chỉnh theo khối lớp và mục tiêu từng tuần.</p>
-            </div>
-            <Link
-              href="/teacher#curriculum"
-              className="rounded-full border border-orange-700/70 px-4 py-2 text-sm font-semibold text-orange-100 hover:bg-orange-500 hover:text-black transition"
-            >
-              Đồng bộ hồ sơ
-            </Link>
+          <div>
+            <p className="text-xs uppercase tracking-[0.4em] text-orange-200/70">Curriculum stack</p>
+            <h2 className="text-2xl font-extrabold text-orange-200">Giáo trình giảng dạy</h2>
+            <p className="text-sm text-orange-100/70">Tùy chỉnh theo khối lớp và mục tiêu từng tuần.</p>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
