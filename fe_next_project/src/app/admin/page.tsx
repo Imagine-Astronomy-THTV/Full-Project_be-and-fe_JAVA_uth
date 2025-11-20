@@ -76,8 +76,23 @@ export default function AdminDashboardPage() {
             <p className="text-gray-700">Quản lý người dùng • Lớp học • Thanh toán • Báo cáo</p>
           </div>
           <div className="flex gap-3">
-            <Link href="/" className="inline-flex h-11 items-center justify-center rounded-full bg-rose-500 px-5 font-semibold text-white shadow hover:bg-rose-600">Trang chủ</Link>
-            <Link href="/auth/logout" className="inline-flex h-11 items-center justify-center rounded-full bg-orange-500 px-5 font-semibold text-white shadow hover:bg-orange-600">Đăng xuất</Link>
+            <Link href="/teacher/dashboard" className="inline-flex h-11 items-center justify-center rounded-full bg-rose-500 px-5 font-semibold text-white shadow hover:bg-rose-600">Trang chủ</Link>
+            <Link 
+              href="/login" 
+              onClick={() => {
+                // Clear all tokens and user data when logging out
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('accessToken');
+                  localStorage.removeItem('expiredAt');
+                  localStorage.removeItem('teacherEmail');
+                  localStorage.removeItem('teacherLastLogin');
+                }
+              }}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-orange-500 px-5 font-semibold text-white shadow hover:bg-orange-600"
+            >
+              Đăng xuất
+            </Link>
           </div>
         </div>
 

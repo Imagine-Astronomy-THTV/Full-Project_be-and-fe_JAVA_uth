@@ -156,6 +156,14 @@ export default function StudentMathStatsPage() {
             </Link>
             <Link
               href="/login"
+              onClick={() => {
+                // Clear token when logging out
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('accessToken');
+                  localStorage.removeItem('expiredAt');
+                }
+              }}
               className="inline-flex h-11 min-w-[120px] items-center justify-center rounded-full bg-gray-800 px-5 font-semibold text-white shadow hover:bg-black"
             >
               Đăng xuất

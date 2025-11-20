@@ -352,6 +352,16 @@ export default function TeacherProfile() {
 
         <Link
           href="/login"
+          onClick={() => {
+            // Clear all tokens and teacher data when logging out
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('token');
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('expiredAt');
+              localStorage.removeItem('teacherEmail');
+              localStorage.removeItem('teacherLastLogin');
+            }
+          }}
           className="text-sm text-orange-100/80 hover:text-orange-300 underline-offset-4 hover:underline"
         >
           Đăng xuất
