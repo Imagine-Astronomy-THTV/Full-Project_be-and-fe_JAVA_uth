@@ -22,7 +22,19 @@ export default function TeacherLoginPage() {
     try {
       const response = await login({ email: email.trim(), password });
 
-      if (!response.role || response.role.toUpperCase() !== "TEACHER") {
+      // Get role from response (could be in response.role or response.user.role)
+      const role = (response.role || response.user?.role)?.toUpperCase();
+      
+      console.log('Login response:', { 
+        role: role, 
+        responseRole: response.role, 
+        userRole: response.user?.role,
+        fullResponse: response 
+      });
+
+      // Backend uses TUTOR, frontend uses TEACHER - check for both
+      if (!role || (role !== "TEACHER" && role !== "TUTOR")) {
+        console.error('Role check failed:', { role, expected: ['TEACHER', 'TUTOR'] });
         throw new Error("Tài khoản này không có quyền giảng viên");
       }
 

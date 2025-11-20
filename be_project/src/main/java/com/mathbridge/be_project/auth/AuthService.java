@@ -56,8 +56,11 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
         // Create user using available constructor on User
         String encodedPassword = passwordEncoder.encode(request.getPassword());
+        
         // Set default role to STUDENT if not provided
+        // Note: RegisterRequestDeserializer already maps "TEACHER" to TUTOR
         UserRole role = request.getRole() != null ? request.getRole() : UserRole.STUDENT;
+        
         User user = new User(
                 "User", // Default fullName - can be updated later
                 request.getEmail(),

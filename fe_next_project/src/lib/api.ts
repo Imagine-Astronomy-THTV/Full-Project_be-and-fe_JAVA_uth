@@ -15,7 +15,15 @@ export interface RegisterRequest {
 
 export interface AuthResponse {
   token: string;
-  role: string;
+  role?: string; // For backward compatibility
+  user?: {
+    id: number;
+    fullName: string | null;
+    email: string;
+    role: string;
+  };
+  ok?: boolean;
+  message?: string;
 }
 
 export interface FeedbackRequest {
@@ -79,6 +87,11 @@ export async function login(credentials: LoginRequest): Promise<AuthResponse> {
     // Kiểm tra các format có thể có
     if (!data.token && data.accessToken) {
       data.token = data.accessToken
+    }
+    
+    // Map role from user object for backward compatibility
+    if (data.user && data.user.role && !data.role) {
+      data.role = data.user.role;
     }
     
     return data;
