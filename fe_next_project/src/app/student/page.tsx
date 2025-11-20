@@ -181,15 +181,75 @@ export default function StudentDashboard() {
                     // Map backend data to frontend format
                     // Backend uses 'grade' but frontend uses 'gradeLevel'
                     const backendStudent = result as any;
+                    
+                    // Load avatar from backend
+                    if (backendStudent.avatar) {
+                        setPhoto(backendStudent.avatar);
+                    }
+                    
+                    // Debug: Log values to see what we're getting
+                    console.log('Loaded student data:', {
+                        grade: backendStudent.grade,
+                        gradeLevel: backendStudent.gradeLevel,
+                        district: backendStudent.district,
+                        hasAvatar: !!backendStudent.avatar
+                    });
+                    
+                    // Normalize grade value to match frontend options
+                    let gradeValue = backendStudent.grade || backendStudent.gradeLevel || "";
+                    // Fix encoding issues: L?p -> Lớp, L?p -> Lớp
+                    if (gradeValue) {
+                        gradeValue = gradeValue.replace(/\?p/g, 'ớp');
+                        // Try to match with valid options
+                        if (!GRADE_LEVELS.includes(gradeValue)) {
+                            // Try to find by number (10, 11, 12)
+                            const numberMatch = gradeValue.match(/\d+/);
+                            if (numberMatch) {
+                                const num = numberMatch[0];
+                                const matched = GRADE_LEVELS.find(g => g.includes(num));
+                                if (matched) gradeValue = matched;
+                            }
+                        }
+                    }
+                    
+                    // Normalize district value
+                    let districtValue = backendStudent.district || "";
+                    // Fix encoding issues: Qu?n -> Quận
+                    if (districtValue) {
+                        districtValue = districtValue.replace(/Qu\?n/g, 'Quận');
+                        // Try to match with valid options
+                        if (!DISTRICTS_HCM.includes(districtValue)) {
+                            // Try to find by number or name
+                            const matched = DISTRICTS_HCM.find(d => {
+                                // Match by number (e.g., "4" in "Quận 4")
+                                const numMatch = districtValue.match(/\d+/);
+                                if (numMatch && d.includes(numMatch[0])) return true;
+                                // Match by name (e.g., "Bình Thạnh")
+                                const nameMatch = districtValue.replace(/Qu\?n\s*\d+/i, '').trim();
+                                if (nameMatch && d.includes(nameMatch)) return true;
+                                return false;
+                            });
+                            if (matched) districtValue = matched;
+                        }
+                    }
+                    
                     setStudent({
                         fullName: backendStudent.fullName || "",
                         dob: backendStudent.dob || "",
                         gender: (backendStudent.gender as Student["gender"]) || "",
-                        district: backendStudent.district || "",
+                        district: districtValue,
                         email: backendStudent.email || "",
                         phone: backendStudent.phone || "",
-                        gradeLevel: backendStudent.grade || backendStudent.gradeLevel || "",
+                        gradeLevel: gradeValue,
                     });
+                    
+                    console.log('Mapped student data:', {
+                        gradeLevel: gradeValue,
+                        district: districtValue,
+                        originalGrade: backendStudent.grade,
+                        originalDistrict: backendStudent.district
+                    });
+                    
                     setEditMode(false); // Disable edit mode if data exists
                 } else {
                     // No student data found, keep edit mode enabled
@@ -284,6 +344,7 @@ export default function StudentDashboard() {
             email: student.email || null,
             phone: student.phone || null,
             gradeLevel: student.gradeLevel,
+            avatar: photo || null, // Include avatar (base64) in payload
             note: null,
         };
 
@@ -302,14 +363,49 @@ export default function StudentDashboard() {
             });
             if (reloaded) {
                 const backendStudent = reloaded as any;
+                
+                // Reload avatar from backend
+                if (backendStudent.avatar) {
+                    setPhoto(backendStudent.avatar);
+                }
+                
+                // Normalize grade and district values (same as in initial load)
+                let gradeValue = backendStudent.grade || backendStudent.gradeLevel || "";
+                if (gradeValue) {
+                    gradeValue = gradeValue.replace(/\?p/g, 'ớp');
+                    if (!GRADE_LEVELS.includes(gradeValue)) {
+                        const numberMatch = gradeValue.match(/\d+/);
+                        if (numberMatch) {
+                            const num = numberMatch[0];
+                            const matched = GRADE_LEVELS.find(g => g.includes(num));
+                            if (matched) gradeValue = matched;
+                        }
+                    }
+                }
+                
+                let districtValue = backendStudent.district || "";
+                if (districtValue) {
+                    districtValue = districtValue.replace(/Qu\?n/g, 'Quận');
+                    if (!DISTRICTS_HCM.includes(districtValue)) {
+                        const matched = DISTRICTS_HCM.find(d => {
+                            const numMatch = districtValue.match(/\d+/);
+                            if (numMatch && d.includes(numMatch[0])) return true;
+                            const nameMatch = districtValue.replace(/Qu\?n\s*\d+/i, '').trim();
+                            if (nameMatch && d.includes(nameMatch)) return true;
+                            return false;
+                        });
+                        if (matched) districtValue = matched;
+                    }
+                }
+                
                 setStudent({
                     fullName: backendStudent.fullName || "",
                     dob: backendStudent.dob || "",
                     gender: (backendStudent.gender as Student["gender"]) || "",
-                    district: backendStudent.district || "",
+                    district: districtValue,
                     email: backendStudent.email || "",
                     phone: backendStudent.phone || "",
-                    gradeLevel: backendStudent.grade || backendStudent.gradeLevel || "",
+                    gradeLevel: gradeValue,
                 });
             }
         } catch (err: unknown) {
@@ -899,9 +995,31 @@ function SelectField<T extends string>({ label, value, onChange, options, edit }
                 </div>
             ) : (
                 <span className="font-medium">
-          {options.find((o) => o.value === value)?.label || (
-              <em className="text-orange-300/60">—</em>
-          )}
+          {(() => {
+              // Try exact match first
+              const exactMatch = options.find((o) => o.value === value);
+              if (exactMatch) return exactMatch.label;
+              
+              // Try case-insensitive match
+              const caseInsensitiveMatch = options.find((o) => 
+                  o.value.toLowerCase() === value.toLowerCase()
+              );
+              if (caseInsensitiveMatch) return caseInsensitiveMatch.label;
+              
+              // Try partial match (for encoding issues)
+              const partialMatch = options.find((o) => {
+                  // Remove special characters and compare
+                  const normalize = (s: string) => s.replace(/[^\w\s]/g, '').toLowerCase();
+                  return normalize(o.value) === normalize(value);
+              });
+              if (partialMatch) return partialMatch.label;
+              
+              // If value exists but no match found, show the value itself
+              if (value) return value;
+              
+              // Otherwise show placeholder
+              return <em className="text-orange-300/60">—</em>;
+          })()}
         </span>
             )}
         </div>

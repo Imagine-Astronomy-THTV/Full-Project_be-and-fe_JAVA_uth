@@ -5,7 +5,7 @@ spring:
   application:
     name: be_project
   datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=elearning;encrypt=false;trustServerCertificate=true;instanceName=SQLEXPRESS
+    url: jdbc:sqlserver://localhost:1433;databaseName=elearning;encrypt=false;trustServerCertificate=true;instanceName=SQLEXPRESS;characterEncoding=UTF-8;useUnicode=true
     username: sa
     password: 123456
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver

@@ -19,6 +19,7 @@ public class StudentRequest {
     private String phone;
     @JsonAlias("gradeLevel")
     private String grade;
+    private String avatar;
     private String note;
 }
 

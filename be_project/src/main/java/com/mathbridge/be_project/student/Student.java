@@ -46,6 +46,9 @@ public class Student {
     @Column(name = "grade", length = 20)
     private String grade;
 
+    @Column(name = "avatar", columnDefinition = "TEXT")
+    private String avatar;
+
     @Column(name = "note", length = 1000)
     private String note;
 
@@ -144,6 +147,14 @@ public class Student {
 
     public void setGrade(String grade) {
         this.grade = grade;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
     }
 
     public String getNote() {

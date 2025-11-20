@@ -92,6 +92,9 @@ public class StudentService {
         if (request.getGrade() != null || allowNullOverwrite) {
             student.setGrade(request.getGrade());
         }
+        if (request.getAvatar() != null || allowNullOverwrite) {
+            student.setAvatar(request.getAvatar());
+        }
         if (request.getNote() != null || allowNullOverwrite) {
             student.setNote(request.getNote());
         }
