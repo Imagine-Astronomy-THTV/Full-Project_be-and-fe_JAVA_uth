@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type ScheduleItem = {
     date: string;
@@ -11,11 +12,22 @@ type ScheduleItem = {
 };
 
 export default function SchedulePage() {
+    const router = useRouter();
     const [date, setDate] = useState("");
     const [time, setTime] = useState("");
     const [method, setMethod] = useState("online");
     const [note, setNote] = useState("");
     const [items, setItems] = useState<ScheduleItem[]>([]);
+
+    // Kiểm tra quyền truy cập - chỉ cho phép giảng viên
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const teacherEmail = localStorage.getItem("teacherEmail");
+        if (!teacherEmail) {
+            router.replace("/login-teacher");
+            return;
+        }
+    }, [router]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,10 +58,10 @@ export default function SchedulePage() {
             </span>
                     </div>
                     <Link
-                        href="/student"
+                        href="/teacher/dashboard"
                         className="text-sm font-semibold text-orange-300 hover:underline"
                     >
-                        ← Quay lại trang học sinh
+                        ← Quay lại trang giảng viên
                     </Link>
                 </div>
             </header>

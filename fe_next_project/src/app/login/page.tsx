@@ -25,11 +25,31 @@ export default function LoginPage() {
       
       console.log('Login response:', response)
       
+      // Kiểm tra role - chỉ cho phép học sinh (STUDENT)
+      const role = (response.role || response.user?.role)?.toUpperCase()
+      
+      console.log('Login role check:', { 
+        role: role, 
+        responseRole: response.role, 
+        userRole: response.user?.role,
+        fullResponse: response 
+      })
+
+      // Chỉ cho phép STUDENT đăng nhập vào trang học sinh
+      if (!role || role !== "STUDENT") {
+        console.error('Role check failed:', { role, expected: 'STUDENT' })
+        throw new Error("Tài khoản này không có quyền học sinh. Vui lòng đăng nhập bằng tài khoản học sinh hoặc sử dụng trang đăng nhập giảng viên.")
+      }
+      
       // Lưu token vào localStorage
       if (response.token) {
         storeToken(response.token)
         // Store in both formats for compatibility
         localStorage.setItem('accessToken', response.token)
+        // Lưu role để kiểm tra sau này
+        if (role) {
+          localStorage.setItem('userRole', role)
+        }
         console.log('Token stored successfully')
       } else {
         throw new Error('Không nhận được token từ server')

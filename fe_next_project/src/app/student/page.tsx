@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiCall } from "@/lib/api";
 
 const DISTRICTS_HCM = [
@@ -78,6 +79,7 @@ function formatDateTimeLabel(value: string | null) {
 }
 
 export default function StudentDashboard() {
+    const router = useRouter();
     const [student, setStudent] = useState<Student>(EMPTY_STUDENT);
     const [photo, setPhoto] = useState<string | null>(null);
     const [photoName, setPhotoName] = useState<string>("");
@@ -160,6 +162,32 @@ export default function StudentDashboard() {
     useEffect(() => {
         syncPaymentInfo();
     }, [syncPaymentInfo]);
+
+    // Kiểm tra role - chỉ cho phép học sinh (STUDENT) truy cập
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        
+        const userRole = localStorage.getItem("userRole");
+        const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+        
+        // Nếu không có token, chuyển về trang đăng nhập
+        if (!token) {
+            router.replace("/login");
+            return;
+        }
+        
+        // Nếu có role và không phải STUDENT, chuyển về trang phù hợp
+        if (userRole && userRole !== "STUDENT") {
+            if (userRole === "TEACHER" || userRole === "TUTOR") {
+                alert("Tài khoản này là tài khoản giảng viên. Vui lòng sử dụng trang đăng nhập giảng viên.");
+                router.replace("/login-teacher");
+            } else {
+                alert("Bạn không có quyền truy cập trang này.");
+                router.replace("/login");
+            }
+            return;
+        }
+    }, [router]);
 
     // Load student data when component mounts
     useEffect(() => {
@@ -459,11 +487,12 @@ export default function StudentDashboard() {
                     <Link
                         href="/login"
                         onClick={() => {
-                            // Clear token when logging out
+                            // Clear token and role when logging out
                             if (typeof window !== 'undefined') {
                                 localStorage.removeItem('token');
                                 localStorage.removeItem('accessToken');
                                 localStorage.removeItem('expiredAt');
+                                localStorage.removeItem('userRole');
                             }
                         }}
                         className="text-sm font-semibold text-orange-300 hover:underline"
@@ -712,10 +741,10 @@ export default function StudentDashboard() {
                     />
 
                     <TileLink
-                        label="Đặt lịch học"
-                        sub="Tự tạo buổi học"
+                        label="Xem lịch học"
+                        sub="Lịch học giảng viên đã đặt"
                         icon="📅"
-                        href="/schedule"
+                        href="/my-schedule"
                     />
 
                     <TileLink
