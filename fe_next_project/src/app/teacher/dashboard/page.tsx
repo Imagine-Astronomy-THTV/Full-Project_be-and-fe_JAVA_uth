@@ -288,7 +288,7 @@ export default function TeacherDashboardPage() {
               </p>
             </div>
             <Link
-              href="/feedback"
+              href="/teacher/feedbacks"
               className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-black shadow-[0_0_20px_rgba(248,148,80,0.6)] hover:bg-orange-400 transition"
             >
               Xem phản hồi mới

@@ -314,13 +314,6 @@ export default function ClassFeedbackPage() {
         {/* Footer nav */}
         <div className="mt-6 flex justify-center gap-4">
           <Link
-            href="/login"
-            className="inline-flex items-center justify-center h-11 min-w-[200px] px-6 rounded-full bg-rose-500 text-white font-semibold shadow hover:bg-rose-600"
-          >
-            Trang chủ
-          </Link>
-
-          <Link
             href="/student"
             className="inline-flex items-center justify-center h-11 min-w-[200px] px-6 rounded-full bg-rose-500 text-white font-semibold shadow hover:bg-rose-600"
           >
